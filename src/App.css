@@ -173,3 +173,82 @@ body {
 
 .input-divider::before { left: 0; }
 .input-divider::after  { right: 0; }
+
+/* ---- Pure Voice Controller (top bar) ---- */
+
+.vc-bar {
+  width: 100%;
+  padding: 12px 20px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.vc-waiting {
+  background: #1e1e3a;
+  border: 1px solid #444;
+}
+
+.vc-drawing {
+  background: #1a2e1a;
+  border: 1px solid #3a6a3a;
+}
+
+.vc-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vc-dot {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.vc-hint {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ccc;
+}
+
+.vc-drawing .vc-hint {
+  color: #8f8;
+}
+
+.vc-manual-start {
+  padding: 4px 14px;
+  font-size: 13px;
+  border: 1px solid #7c5cfc;
+  border-radius: 14px;
+  background: transparent;
+  color: #9b7eff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.vc-manual-start:hover {
+  background: #2a2a4a;
+}
+
+.vc-live {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.25);
+  color: #ddd;
+  font-size: 15px;
+  min-height: 22px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.vc-err {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #4a2020;
+  color: #f88;
+  font-size: 13px;
+}

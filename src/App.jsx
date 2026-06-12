@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import Canvas from './components/Canvas.jsx'
+import VoiceController from './components/VoiceController.jsx'
 import VoiceInput from './components/VoiceInput.jsx'
 import TextInput from './components/TextInput.jsx'
 import History from './components/History.jsx'
@@ -78,6 +79,8 @@ export default function App() {
 
   return (
     <div className="app">
+      <VoiceController onSubmit={handleCommand} disabled={loading} />
+
       <header className="app-header">
         <h1>AI 语音绘图助手</h1>
         <span className="status-badge">{loading ? '⏳' : '🎨'} {status}</span>
