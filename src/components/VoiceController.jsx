@@ -2,12 +2,11 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 
 const SILENCE_MS = 1500
 
-// Fuzzy match: tolerate minor ASR errors like "开始话画" / "结束会画"
 const START_RE = /开始.{0,2}[绘画画划]/
 const END_RE   = /结束.{0,2}[绘画画划]/
 
 export default function VoiceController({ onSubmit, disabled }) {
-  const [mode, setMode] = useState('waiting') // 'waiting' | 'drawing'
+  const [mode, setMode] = useState('waiting')
   const [transcript, setTranscript] = useState('')
   const [error, setError] = useState(null)
   const [micReady, setMicReady] = useState(false)
@@ -18,8 +17,15 @@ export default function VoiceController({ onSubmit, disabled }) {
   const modeRef = useRef('waiting')
   const deadRef = useRef(false)
 
-  // sync ref for callbacks that can't see fresh state
+  // Always-fresh props for callbacks captured in stale closures
+  const onSubmitRef = useRef(onSubmit)
+  const disabledRef = useRef(disabled)
+
   useEffect(() => { modeRef.current = mode }, [mode])
+  useEffect(() => { onSubmitRef.current = onSubmit }, [onSubmit])
+  useEffect(() => { disabledRef.current = disabled }, [disabled])
+
+  // ---- helpers (zero-dependency, stable across renders) ----
 
   const clearSilence = useCallback(() => {
     if (silenceRef.current) {
@@ -37,13 +43,8 @@ export default function VoiceController({ onSubmit, disabled }) {
     }
   }, [clearSilence])
 
-  const commit = useCallback((text) => {
-    if (text && !disabled) {
-      onSubmit(text)
-    }
-  }, [disabled, onSubmit])
+  // ---- silence → auto-commit ----
 
-  // ---- silence → auto-commit current sentence ----
   const onSilence = useCallback(() => {
     const text = finalRef.current.trim()
     finalRef.current = ''
@@ -55,14 +56,13 @@ export default function VoiceController({ onSubmit, disabled }) {
         setMode('waiting')
         return
       }
-      commit(text)
-    } else {
-      // waiting mode — check for start keyword
-      if (START_RE.test(text)) {
-        setMode('drawing')
+      if (!disabledRef.current) {
+        onSubmitRef.current(text)
       }
+    } else if (START_RE.test(text)) {
+      setMode('drawing')
     }
-  }, [commit])
+  }, []) // stable — only uses refs
 
   const startSilenceTimer = useCallback(() => {
     clearSilence()
@@ -70,7 +70,10 @@ export default function VoiceController({ onSubmit, disabled }) {
   }, [clearSilence, onSilence])
 
   // ---- recognition lifecycle ----
+
   const boot = useCallback(() => {
+    deadRef.current = false // reset after React strict-mode double-mount
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
       setError('浏览器不支持语音识别，请使用 Chrome 或 Edge')
@@ -98,7 +101,6 @@ export default function VoiceController({ onSubmit, disabled }) {
       const display = finalRef.current + interim
       setTranscript(display)
 
-      // Real-time keyword detection (before silence timer fires)
       const m = modeRef.current
       if (m === 'waiting' && START_RE.test(display)) {
         finalRef.current = ''
@@ -130,7 +132,6 @@ export default function VoiceController({ onSubmit, disabled }) {
 
     rec.onend = () => {
       if (deadRef.current) return
-      // auto-restart
       recRef.current = null
       boot()
     }
@@ -141,7 +142,7 @@ export default function VoiceController({ onSubmit, disabled }) {
     setError(null)
   }, [stopRec, clearSilence, startSilenceTimer])
 
-  // boot on mount, shutdown on unmount
+  // boot on mount
   useEffect(() => {
     boot()
     return () => {
@@ -150,7 +151,6 @@ export default function VoiceController({ onSubmit, disabled }) {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Allow manual restart from "重新开始" button
   const restartDrawing = () => {
     finalRef.current = ''
     setTranscript('')
