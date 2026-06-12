@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "SessionStart": {
+      "command": "node .claude/hooks/session-start.mjs"
+    }
+  }
+}
