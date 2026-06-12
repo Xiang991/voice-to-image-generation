@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 
 const SILENCE_MS = 1500
-const BOOT_COOLDOWN_MS = 800
 
 const START_RE = /开始.{0,2}[绘画画划]/
 const END_RE   = /结束.{0,2}[绘画画划]/
@@ -17,8 +16,7 @@ export default function VoiceController({ onSubmit, disabled }) {
   const finalRef = useRef('')
   const modeRef = useRef('waiting')
   const deadRef = useRef(false)
-  const lastBootRef = useRef(0)
-  const hadErrorRef = useRef(false)
+  const restartTimerRef = useRef(null)
 
   const onSubmitRef = useRef(onSubmit)
   const disabledRef = useRef(disabled)
@@ -27,29 +25,34 @@ export default function VoiceController({ onSubmit, disabled }) {
   useEffect(() => { onSubmitRef.current = onSubmit }, [onSubmit])
   useEffect(() => { disabledRef.current = disabled }, [disabled])
 
-  const clearSilence = useCallback(() => {
+  // ---- helpers ----
+
+  const clearAll = useCallback(() => {
     if (silenceRef.current) {
       clearTimeout(silenceRef.current)
       silenceRef.current = null
     }
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current)
+      restartTimerRef.current = null
+    }
   }, [])
 
   const stopRec = useCallback(() => {
-    clearSilence()
     const r = recRef.current
     if (r) {
       recRef.current = null
       try { r.stop() } catch (_) {}
     }
-  }, [clearSilence])
+  }, [])
 
-  const onSilence = useCallback(() => {
-    const text = finalRef.current.trim()
-    finalRef.current = ''
-    setTranscript('')
+  // ---- commit sentence ----
+
+  const commitText = useCallback((text) => {
     if (!text) return
 
-    if (modeRef.current === 'drawing') {
+    const m = modeRef.current
+    if (m === 'drawing') {
       if (END_RE.test(text)) {
         setMode('waiting')
         return
@@ -62,19 +65,29 @@ export default function VoiceController({ onSubmit, disabled }) {
     }
   }, [])
 
-  const startSilenceTimer = useCallback(() => {
-    clearSilence()
-    silenceRef.current = setTimeout(onSilence, SILENCE_MS)
-  }, [clearSilence, onSilence])
+  // ---- silence → commit then restart ----
 
-  const boot = useCallback(() => {
-    // Prevent runaway restart loop
-    const now = Date.now()
-    if (now - lastBootRef.current < BOOT_COOLDOWN_MS) return
-    lastBootRef.current = now
+  const handleSilence = useCallback(() => {
+    const text = finalRef.current.trim()
+    finalRef.current = ''
+    setTranscript('')
+    commitText(text)
+    // fall through to restart below
+    scheduleRestart()
+  }, [commitText])
 
-    deadRef.current = false
-    hadErrorRef.current = false
+  const scheduleRestart = useCallback(() => {
+    if (deadRef.current) return
+    clearAll()
+    stopRec()
+    // short delay before next recognition cycle
+    restartTimerRef.current = setTimeout(bootRec, 200)
+  }, [clearAll, stopRec])
+
+  // ---- single recognition cycle (like voice-test.html) ----
+
+  const bootRec = useCallback(() => {
+    if (deadRef.current) return
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
@@ -82,16 +95,17 @@ export default function VoiceController({ onSubmit, disabled }) {
       return
     }
 
+    // tear down any existing recognition
     stopRec()
 
     const rec = new SpeechRecognition()
-    rec.continuous = true
+    rec.continuous = false     // one utterance per cycle
     rec.interimResults = true
     rec.lang = 'zh-CN'
 
     rec.onresult = (e) => {
-      if (deadRef.current) return
-      clearSilence()
+      if (deadRef.current || recRef.current !== rec) return
+      clearAll()
 
       let interim = ''
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -103,28 +117,32 @@ export default function VoiceController({ onSubmit, disabled }) {
       const display = finalRef.current + interim
       setTranscript(display)
 
+      // real-time keyword check
       const m = modeRef.current
       if (m === 'waiting' && START_RE.test(display)) {
         finalRef.current = ''
         setTranscript('')
         setMode('drawing')
+        stopRec()
+        scheduleRestart()
       } else if (m === 'drawing' && END_RE.test(display)) {
         finalRef.current = ''
         setTranscript('')
         setMode('waiting')
+        stopRec()
+        scheduleRestart()
       }
     }
 
     rec.onspeechend = () => {
-      if (deadRef.current) return
+      if (deadRef.current || recRef.current !== rec) return
       if (finalRef.current.trim()) {
-        startSilenceTimer()
+        silenceRef.current = setTimeout(handleSilence, SILENCE_MS)
       }
     }
 
     rec.onerror = (e) => {
-      if (deadRef.current) return
-      hadErrorRef.current = true
+      if (deadRef.current || recRef.current !== rec) return
       if (e.error === 'not-allowed') {
         setError('麦克风权限被拒绝，请在浏览器设置中允许后刷新页面')
         setMicReady(false)
@@ -135,10 +153,16 @@ export default function VoiceController({ onSubmit, disabled }) {
 
     rec.onend = () => {
       if (deadRef.current) return
-      recRef.current = null
-      // Never auto-restart after an error — that causes the infinite loop
-      if (hadErrorRef.current) return
-      boot()
+      if (recRef.current === rec) {
+        recRef.current = null
+        // If there's pending text and no silence timer, start one
+        if (finalRef.current.trim() && !silenceRef.current) {
+          silenceRef.current = setTimeout(handleSilence, SILENCE_MS)
+        } else if (!finalRef.current.trim()) {
+          // Nothing to commit, just restart
+          scheduleRestart()
+        }
+      }
     }
 
     recRef.current = rec
@@ -148,13 +172,17 @@ export default function VoiceController({ onSubmit, disabled }) {
       setError(null)
     } catch (e) {
       setError('启动语音识别失败: ' + (e.message || e))
+      scheduleRestart()
     }
-  }, [stopRec, clearSilence, startSilenceTimer])
+  }, [stopRec, clearAll, handleSilence, scheduleRestart])
 
+  // bootstrap
   useEffect(() => {
-    boot()
+    deadRef.current = false
+    bootRec()
     return () => {
       deadRef.current = true
+      clearAll()
       stopRec()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -163,6 +191,8 @@ export default function VoiceController({ onSubmit, disabled }) {
     finalRef.current = ''
     setTranscript('')
     setMode('drawing')
+    stopRec()
+    scheduleRestart()
   }
 
   const barCls = mode === 'drawing' ? 'vc-bar vc-drawing' : 'vc-bar vc-waiting'
