@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import Canvas from './components/Canvas.jsx'
 import TextInput from './components/TextInput.jsx'
 import History from './components/History.jsx'
+import DebugPanel from './components/DebugPanel.jsx'
 import { runAgent } from './services/agent.js'
 import { resolveColor } from './utils/colors.js'
 import { CONFIG } from './config.js'
@@ -12,6 +13,7 @@ export default function App() {
   const canvasRef = useRef(null)
   const [layers, setLayers] = useState([])
   const [history, setHistory] = useState([])
+  const [debugTrace, setDebugTrace] = useState(null)
   const [status, setStatus] = useState('就绪')
   const [loading, setLoading] = useState(false)
 
@@ -26,7 +28,7 @@ export default function App() {
     const newLayers = [...layers]
 
     try {
-      await runAgent(text, async (name, args) => {
+      const result = await runAgent(text, async (name, args) => {
         switch (name) {
           case 'draw_shape': {
             args.color = resolveColor(args.color)
@@ -55,6 +57,7 @@ export default function App() {
       })
 
       setLayers([...newLayers])
+      setDebugTrace(result.trace)
       setHistory((prev) => [
         { id: nextId++, text, status: 'success', timestamp: new Date() },
         ...prev,
@@ -92,6 +95,10 @@ export default function App() {
           <div className="panel-section">
             <h3>指令历史</h3>
             <History items={history} />
+          </div>
+          <div className="panel-section">
+            <h3>API 传输记录（调试）</h3>
+            <DebugPanel trace={debugTrace} />
           </div>
         </aside>
       </main>
