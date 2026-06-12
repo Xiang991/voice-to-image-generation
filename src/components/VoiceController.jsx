@@ -18,6 +18,7 @@ export default function VoiceController({ onSubmit, disabled }) {
   const deadRef = useRef(false)
   const restartTimerRef = useRef(null)
   const hadErrorRef = useRef(false)
+  const lastRestartRef = useRef(0)
 
   const onSubmitRef = useRef(onSubmit)
   const disabledRef = useRef(disabled)
@@ -92,10 +93,13 @@ export default function VoiceController({ onSubmit, disabled }) {
   }, [commitText])
 
   const scheduleRestart = useCallback(() => {
-    if (deadRef.current) return
+    if (deadRef.current || hadErrorRef.current) return
+    // hard cooldown: max 1 restart per second
+    const now = Date.now()
+    if (now - lastRestartRef.current < 1000) return
+    lastRestartRef.current = now
     clearAll()
     stopRec()
-    // short delay before next recognition cycle
     restartTimerRef.current = setTimeout(bootRec, 200)
   }, [clearAll, stopRec])
 
@@ -219,6 +223,9 @@ export default function VoiceController({ onSubmit, disabled }) {
     finalRef.current = ''
     setTranscript('')
     setMode('drawing')
+    hadErrorRef.current = false
+    lastRestartRef.current = 0
+    setError(null)
     stopRec()
     scheduleRestart()
   }
