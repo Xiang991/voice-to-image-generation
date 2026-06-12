@@ -17,6 +17,7 @@ export default function VoiceController({ onSubmit, disabled }) {
   const modeRef = useRef('waiting')
   const deadRef = useRef(false)
   const restartTimerRef = useRef(null)
+  const hadErrorRef = useRef(false)
 
   const onSubmitRef = useRef(onSubmit)
   const disabledRef = useRef(disabled)
@@ -103,6 +104,8 @@ export default function VoiceController({ onSubmit, disabled }) {
   const bootRec = useCallback(() => {
     if (deadRef.current) return
 
+    hadErrorRef.current = false
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
       setError('浏览器不支持语音识别，请使用 Chrome 或 Edge')
@@ -168,6 +171,7 @@ export default function VoiceController({ onSubmit, disabled }) {
 
     rec.onerror = (e) => {
       if (deadRef.current || recRef.current !== rec) return
+      hadErrorRef.current = true
       if (e.error === 'not-allowed') {
         setError('麦克风权限被拒绝，请在浏览器设置中允许后刷新页面')
         setMicReady(false)
@@ -180,11 +184,10 @@ export default function VoiceController({ onSubmit, disabled }) {
       if (deadRef.current) return
       if (recRef.current === rec) {
         recRef.current = null
-        // If there's pending text and no silence timer, start one
+        if (hadErrorRef.current) return  // never restart after error
         if (finalRef.current.trim() && !silenceRef.current) {
           silenceRef.current = setTimeout(handleSilence, SILENCE_MS)
         } else if (!finalRef.current.trim()) {
-          // Nothing to commit, just restart
           scheduleRestart()
         }
       }
