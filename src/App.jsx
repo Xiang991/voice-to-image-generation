@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import Canvas from './components/Canvas.jsx'
 import VoiceController from './components/VoiceController.jsx'
-import VoiceInput from './components/VoiceInput.jsx'
 import History from './components/History.jsx'
 import { runAgent } from './services/agent.js'
 import { resolveColor } from './utils/colors.js'
@@ -88,9 +87,6 @@ export default function App() {
         </div>
 
         <aside className="side-panel">
-          <div className="panel-section">
-            <VoiceInput onSubmit={handleCommand} disabled={loading} />
-          </div>
           <div className="panel-section">
             <h3>指令历史</h3>
             <History items={history} />
