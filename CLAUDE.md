@@ -100,9 +100,19 @@ SessionStart hook 自动输出当前状态。读取 progress.json，从当前步
 ## 当前状态
 
 - **阶段：** 增量执行
-- **进度：** 3/6 步完成
-- **当前步骤：** Step 3 — 语音输入集成（刚完成）
-- **下一步工作：** Step 4 — 场景模板系统 (draw_scene)
+- **进度：** 3/6 步完成（Step 4/5 模板系统暂缓）
+- **当前工作：** 纯语音控制模式已完成，UI 精简为零按钮
+- **部署：** GitHub Pages → https://Xiang991.github.io/voice-to-image-generation/
+- **下一步：** 绘图优化（SVG 质量 / 复合指令 / 画布交互）
+
+### 分支概览
+
+| 分支 | 内容 |
+|------|------|
+| `main` | 稳定版本（Step 1-3 已完成）|
+| `feature-pure-voice-mode` | 纯语音控制模式（VoiceController）|
+| `feature-voice-only-drawing` | 当前 — 零按钮纯语音 + 绘图优化 |
+| `step-4-scene-templates` | （暂缓）场景模板系统 |
 
 ## 工作规范
 
