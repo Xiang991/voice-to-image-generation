@@ -4,8 +4,56 @@ body {
   font-family: -apple-system, 'Segoe UI', sans-serif;
   background: #1a1a2e;
   color: #eee;
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.app-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 100vh;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.app-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.status-badge {
+  font-size: 14px;
+  background: #2a2a4a;
+  padding: 6px 14px;
+  border-radius: 20px;
+}
+
+.app-main {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.canvas-area {
+  flex-shrink: 0;
+}
+
+.side-panel {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panel-section h3 {
+  font-size: 14px;
+  color: #aaa;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }

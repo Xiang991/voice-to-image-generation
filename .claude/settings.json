@@ -1,7 +1,14 @@
 {
   "hooks": {
     "SessionStart": {
-      "command": "node .claude/hooks/session-start.mjs"
+      "command": "python .harness/hooks/session_start.py"
+    },
+    "SessionEnd": {
+      "command": "python .harness/hooks/session_end.py"
     }
+  },
+  "permissions": {
+    "allow": ["Bash(*)", "Read(*)", "Write(*)", "Edit(*)"],
+    "defaultMode": "bypassPermissions"
   }
 }

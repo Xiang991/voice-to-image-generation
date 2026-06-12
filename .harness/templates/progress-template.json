@@ -1,0 +1,39 @@
+{
+  "project": "项目名称",
+  "phase": "implementation",
+  "current_step": "",
+
+  "design_doc": "design.md",
+
+  "steps": [
+    {
+      "id": "step-1",
+      "title": "步骤标题",
+      "description": "步骤描述",
+      "tier": 1,
+      "milestone": "",
+      "acceptance_criteria": [
+        "验收标准 1"
+      ],
+      "verification_commands": [
+        "pytest tests/..."
+      ],
+      "passes": false,
+      "e2e_interval": 3,
+      "depends_on": []
+    }
+  ],
+
+  "milestones": [
+    { "tier": 1, "label": "Walking Skeleton 完成", "step_id": "" },
+    { "tier": 2, "label": "功能扩展完成", "step_id": "" },
+    { "tier": 3, "label": "加固完成", "step_id": "" }
+  ],
+
+  "total_steps": 0,
+  "completed": 0,
+
+  "design_decisions": [],
+
+  "last_updated": ""
+}
