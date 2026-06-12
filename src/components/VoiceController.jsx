@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 
 const SILENCE_MS = 1500
 
-const START_RE = /开始.{0,2}[绘画画划]/
-const END_RE   = /结束.{0,2}[绘画画划]/
+const START_RE = /开始.{0,1}(绘画|绘图|画图|画画)/
+const END_RE   = /结束.{0,1}(绘画|绘图|画图|画画)/
 
 export default function VoiceController({ onSubmit, disabled }) {
   const [mode, setMode] = useState('waiting')
@@ -53,15 +53,29 @@ export default function VoiceController({ onSubmit, disabled }) {
 
     const m = modeRef.current
     if (m === 'drawing') {
-      if (END_RE.test(text)) {
+      const endMatch = text.match(END_RE)
+      if (endMatch) {
+        // Send everything before the keyword, then switch to waiting
+        const before = text.slice(0, endMatch.index).trim()
+        if (before && !disabledRef.current) {
+          onSubmitRef.current(before)
+        }
         setMode('waiting')
         return
       }
       if (!disabledRef.current) {
         onSubmitRef.current(text)
       }
-    } else if (START_RE.test(text)) {
-      setMode('drawing')
+    } else {
+      const startMatch = text.match(START_RE)
+      if (startMatch) {
+        setMode('drawing')
+        // Send anything after the keyword as a drawing command
+        const after = text.slice(startMatch.index + startMatch[0].length).trim()
+        if (after && !disabledRef.current) {
+          onSubmitRef.current(after)
+        }
+      }
     }
   }, [])
 
@@ -119,18 +133,29 @@ export default function VoiceController({ onSubmit, disabled }) {
 
       // real-time keyword check
       const m = modeRef.current
-      if (m === 'waiting' && START_RE.test(display)) {
-        finalRef.current = ''
-        setTranscript('')
-        setMode('drawing')
-        stopRec()
-        scheduleRestart()
-      } else if (m === 'drawing' && END_RE.test(display)) {
-        finalRef.current = ''
-        setTranscript('')
-        setMode('waiting')
-        stopRec()
-        scheduleRestart()
+      if (m === 'waiting') {
+        const sm = display.match(START_RE)
+        if (sm) {
+          const after = display.slice(sm.index + sm[0].length).trim()
+          finalRef.current = after
+          setTranscript(after)
+          setMode('drawing')
+          stopRec()
+          scheduleRestart()
+        }
+      } else if (m === 'drawing') {
+        const em = display.match(END_RE)
+        if (em) {
+          const before = display.slice(0, em.index).trim()
+          if (before && !disabledRef.current) {
+            onSubmitRef.current(before)
+          }
+          finalRef.current = ''
+          setTranscript('')
+          setMode('waiting')
+          stopRec()
+          scheduleRestart()
+        }
       }
     }
 
