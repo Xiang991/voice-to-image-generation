@@ -23,7 +23,7 @@
       "description": "实现 TextInput 组件 + Agent 服务 + Canvas 画布(draw_shape + draw_svg)，串联成文字绘图的完整流程",
       "tier": 1,
       "depends_on": ["step-1"],
-      "status": "pending",
+      "status": "approved",
       "acceptance_criteria": [
         "输入'画红色圆' → Canvas 出现红色圆形",
         "输入'画小狗' → SVG 绘制的小狗轮廓",
@@ -37,8 +37,9 @@
         "浏览器打开 localhost:5173",
         "输入'画红色圆'，观察 Canvas 出现红色圆形"
       ],
-      "completed": false,
-      "passes": false
+      "completed": true,
+      "passes": true,
+      "completed_via": ["step-2-text-agent-canvas", "feature-fabric-canvas", "feature-debug-panel"]
     },
     {
       "id": "step-3",
@@ -122,8 +123,8 @@
     }
   ],
   "total_steps": 6,
-  "completed": 1,
-  "current_step": "step-2",
+  "completed": 2,
+  "current_step": "step-3",
   "milestones": {
     "tier1_complete": "step-2",
     "tier2_complete": "step-5",
