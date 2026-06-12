@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import Canvas from './components/Canvas.jsx'
+import VoiceInput from './components/VoiceInput.jsx'
 import TextInput from './components/TextInput.jsx'
 import History from './components/History.jsx'
 import DebugPanel from './components/DebugPanel.jsx'
@@ -90,6 +91,8 @@ export default function App() {
         <aside className="side-panel">
           <div className="panel-section">
             <h3>指令输入</h3>
+            <VoiceInput onSubmit={handleCommand} disabled={loading} />
+            <div className="input-divider">或</div>
             <TextInput onSubmit={handleCommand} disabled={loading} />
           </div>
           <div className="panel-section">

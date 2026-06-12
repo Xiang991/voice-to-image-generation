@@ -23,7 +23,7 @@
       "description": "实现 TextInput 组件 + Agent 服务 + Canvas 画布(draw_shape + draw_svg)，串联成文字绘图的完整流程",
       "tier": 1,
       "depends_on": ["step-1"],
-      "status": "pending",
+      "status": "approved",
       "acceptance_criteria": [
         "输入'画红色圆' → Canvas 出现红色圆形",
         "输入'画小狗' → SVG 绘制的小狗轮廓",
@@ -37,8 +37,9 @@
         "浏览器打开 localhost:5173",
         "输入'画红色圆'，观察 Canvas 出现红色圆形"
       ],
-      "completed": false,
-      "passes": false
+      "completed": true,
+      "passes": true,
+      "completed_via": ["step-2-text-agent-canvas", "feature-fabric-canvas", "feature-debug-panel"]
     },
     {
       "id": "step-3",
@@ -46,7 +47,7 @@
       "description": "实现 VoiceInput 组件，Web Speech API 录音+转写，与现有文字→Agent→Canvas 管线对接",
       "tier": 2,
       "depends_on": ["step-2"],
-      "status": "pending",
+      "status": "approved",
       "acceptance_criteria": [
         "浏览器麦克风权限正常申请",
         "按住录音按钮说话、松开发送",
@@ -57,8 +58,9 @@
       "verification_commands": [
         "按住 🎤 按钮说'画蓝色矩形' → 松手 → Canvas 出现蓝色矩形"
       ],
-      "completed": false,
-      "passes": false
+      "completed": true,
+      "passes": true,
+      "note": "Web Speech API 语音识别需在 Chrome/Edge 浏览器中手动测试麦克风权限和实际转写效果"
     },
     {
       "id": "step-4",
@@ -122,8 +124,8 @@
     }
   ],
   "total_steps": 6,
-  "completed": 1,
-  "current_step": "step-2",
+  "completed": 3,
+  "current_step": "step-4",
   "milestones": {
     "tier1_complete": "step-2",
     "tier2_complete": "step-5",

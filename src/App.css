@@ -60,3 +60,116 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
 }
+
+/* ---- Voice Input ---- */
+
+.voice-input {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-btn {
+  width: 100%;
+  padding: 14px 20px;
+  font-size: 17px;
+  font-weight: 700;
+  border: 2px solid #7c5cfc;
+  border-radius: 12px;
+  background: #2a2a4a;
+  color: #ccc;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.voice-btn:hover:not(:disabled) {
+  background: #33335a;
+  border-color: #9b7eff;
+}
+
+.voice-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voice-btn.is-recording {
+  background: #4a1a2e;
+  border-color: #f44;
+  color: #faa;
+  box-shadow: 0 0 20px rgba(255, 68, 68, 0.35);
+  animation: voice-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes voice-pulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(255, 68, 68, 0.3); }
+  50%      { box-shadow: 0 0 28px rgba(255, 68, 68, 0.55); }
+}
+
+.voice-btn-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.voice-btn-label {
+  line-height: 1;
+}
+
+.voice-transcript {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #232340;
+  color: #ddd;
+  font-size: 14px;
+  text-align: center;
+  min-height: 36px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.voice-hint {
+  color: #888;
+  font-style: italic;
+}
+
+.voice-error {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #4a2020;
+  color: #f88;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ---- Divider ---- */
+
+.input-divider {
+  width: 100%;
+  text-align: center;
+  color: #666;
+  font-size: 12px;
+  position: relative;
+  margin: 2px 0;
+}
+
+.input-divider::before,
+.input-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 40%;
+  height: 1px;
+  background: #333;
+}
+
+.input-divider::before { left: 0; }
+.input-divider::after  { right: 0; }

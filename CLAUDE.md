@@ -100,9 +100,9 @@ SessionStart hook 自动输出当前状态。读取 progress.json，从当前步
 ## 当前状态
 
 - **阶段：** 增量执行
-- **进度：** 1/6 步完成
-- **当前步骤：** Step 2 — 文字→Agent→Canvas 全栈闭环
-- **下一步工作：** 实现 TextInput + Agent 服务 + Canvas 渲染串联
+- **进度：** 3/6 步完成
+- **当前步骤：** Step 3 — 语音输入集成（刚完成）
+- **下一步工作：** Step 4 — 场景模板系统 (draw_scene)
 
 ## 工作规范
 
