@@ -68,7 +68,8 @@
       "description": "实现 sceneRenderer + 5 个核心模板 (house/tree/sun/mountain/cloud)，Agent 新增 draw_scene 工具",
       "tier": 2,
       "depends_on": ["step-3"],
-      "status": "pending",
+      "status": "on_hold",
+      "note": "模板系统方案待商议——当前 draw_svg 已能满足基本场景绘制需求，模板的边际收益有限。决定先聚焦纯语音体验。",
       "acceptance_criteria": [
         "5 个核心模板渲染正常（房子/树/太阳/山/云）",
         "Agent 可组合多个模板到 elements 数组",
@@ -88,7 +89,8 @@
       "description": "扩充到 15 个模板，支持复合指令多步骤执行、clear/undo 画布控制、重度 ASR 错误容错",
       "tier": 2,
       "depends_on": ["step-4"],
-      "status": "pending",
+      "status": "on_hold",
+      "note": "模板系统整体暂缓，复合指令/ASR 容错/画布控制已部分实现在 pure-voice 分支中。",
       "acceptance_criteria": [
         "15 个模板全部可用（house/tree/sun/mountain/cloud/flower/bench/road/star/heart/leaf/grass/river/fence/moon）",
         "'秋天的街道'/'日落海边'/'星空月夜' 场景正常",
@@ -125,11 +127,20 @@
   ],
   "total_steps": 6,
   "completed": 3,
-  "current_step": "step-4",
+  "current_step": "pure-voice-optimization",
   "milestones": {
     "tier1_complete": "step-2",
-    "tier2_complete": "step-5",
+    "voice_input": "step-3",
+    "pure_voice_control": "feature-pure-voice-mode",
+    "ui_simplified": "feature-voice-only-drawing",
+    "github_pages_deployed": "feature-voice-only-drawing",
+    "tier2_on_hold": "step-4, step-5 (模板系统待商议)",
     "all_complete": "step-6"
+  },
+  "branches": {
+    "feature-pure-voice-mode": "纯语音控制模式 — VoiceController 持续监听，关键词驱动，Permissions API 自动恢复",
+    "feature-voice-only-drawing": "纯语音精简版 — 移除所有按钮/输入框，零点击纯语音 + 绘图优化",
+    "step-4-scene-templates": "（暂缓）场景模板系统分支"
   },
   "e2e_interval": 3
 }
