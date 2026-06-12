@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 
 const SILENCE_MS = 1500
+const BOOT_COOLDOWN_MS = 800
 
 const START_RE = /开始.{0,2}[绘画画划]/
 const END_RE   = /结束.{0,2}[绘画画划]/
@@ -16,16 +17,15 @@ export default function VoiceController({ onSubmit, disabled }) {
   const finalRef = useRef('')
   const modeRef = useRef('waiting')
   const deadRef = useRef(false)
+  const lastBootRef = useRef(0)
+  const hadErrorRef = useRef(false)
 
-  // Always-fresh props for callbacks captured in stale closures
   const onSubmitRef = useRef(onSubmit)
   const disabledRef = useRef(disabled)
 
   useEffect(() => { modeRef.current = mode }, [mode])
   useEffect(() => { onSubmitRef.current = onSubmit }, [onSubmit])
   useEffect(() => { disabledRef.current = disabled }, [disabled])
-
-  // ---- helpers (zero-dependency, stable across renders) ----
 
   const clearSilence = useCallback(() => {
     if (silenceRef.current) {
@@ -39,11 +39,9 @@ export default function VoiceController({ onSubmit, disabled }) {
     const r = recRef.current
     if (r) {
       recRef.current = null
-      try { r.stop() } catch (_) { /* already stopped */ }
+      try { r.stop() } catch (_) {}
     }
   }, [clearSilence])
-
-  // ---- silence → auto-commit ----
 
   const onSilence = useCallback(() => {
     const text = finalRef.current.trim()
@@ -62,17 +60,21 @@ export default function VoiceController({ onSubmit, disabled }) {
     } else if (START_RE.test(text)) {
       setMode('drawing')
     }
-  }, []) // stable — only uses refs
+  }, [])
 
   const startSilenceTimer = useCallback(() => {
     clearSilence()
     silenceRef.current = setTimeout(onSilence, SILENCE_MS)
   }, [clearSilence, onSilence])
 
-  // ---- recognition lifecycle ----
-
   const boot = useCallback(() => {
-    deadRef.current = false // reset after React strict-mode double-mount
+    // Prevent runaway restart loop
+    const now = Date.now()
+    if (now - lastBootRef.current < BOOT_COOLDOWN_MS) return
+    lastBootRef.current = now
+
+    deadRef.current = false
+    hadErrorRef.current = false
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
@@ -122,6 +124,7 @@ export default function VoiceController({ onSubmit, disabled }) {
 
     rec.onerror = (e) => {
       if (deadRef.current) return
+      hadErrorRef.current = true
       if (e.error === 'not-allowed') {
         setError('麦克风权限被拒绝，请在浏览器设置中允许后刷新页面')
         setMicReady(false)
@@ -133,16 +136,21 @@ export default function VoiceController({ onSubmit, disabled }) {
     rec.onend = () => {
       if (deadRef.current) return
       recRef.current = null
+      // Never auto-restart after an error — that causes the infinite loop
+      if (hadErrorRef.current) return
       boot()
     }
 
     recRef.current = rec
-    rec.start()
-    setMicReady(true)
-    setError(null)
+    try {
+      rec.start()
+      setMicReady(true)
+      setError(null)
+    } catch (e) {
+      setError('启动语音识别失败: ' + (e.message || e))
+    }
   }, [stopRec, clearSilence, startSilenceTimer])
 
-  // boot on mount
   useEffect(() => {
     boot()
     return () => {
@@ -157,7 +165,6 @@ export default function VoiceController({ onSubmit, disabled }) {
     setMode('drawing')
   }
 
-  // ---- render ----
   const barCls = mode === 'drawing' ? 'vc-bar vc-drawing' : 'vc-bar vc-waiting'
 
   let hint
