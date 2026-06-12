@@ -219,19 +219,25 @@ body {
   color: #8f8;
 }
 
-.vc-manual-start {
-  padding: 4px 14px;
-  font-size: 13px;
-  border: 1px solid #7c5cfc;
-  border-radius: 14px;
-  background: transparent;
-  color: #9b7eff;
+.vc-enable-btn {
+  padding: 8px 22px;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  background: #7c5cfc;
+  color: #fff;
   cursor: pointer;
   white-space: nowrap;
 }
 
-.vc-manual-start:hover {
-  background: #2a2a4a;
+.vc-enable-btn:hover {
+  background: #9b7eff;
+}
+
+.vc-hint-err {
+  color: #f88;
+  font-size: 13px;
 }
 
 .vc-live {

@@ -30,53 +30,35 @@ export default function VoiceController({ onSubmit, disabled }) {
   // ---- helpers ----
 
   const clearAll = useCallback(() => {
-    if (silenceRef.current) {
-      clearTimeout(silenceRef.current)
-      silenceRef.current = null
-    }
-    if (restartTimerRef.current) {
-      clearTimeout(restartTimerRef.current)
-      restartTimerRef.current = null
-    }
+    if (silenceRef.current) { clearTimeout(silenceRef.current); silenceRef.current = null }
+    if (restartTimerRef.current) { clearTimeout(restartTimerRef.current); restartTimerRef.current = null }
   }, [])
 
   const stopRec = useCallback(() => {
     const r = recRef.current
-    if (r) {
-      recRef.current = null
-      try { r.stop() } catch (_) {}
-    }
+    if (r) { recRef.current = null; try { r.stop() } catch (_) {} }
   }, [])
 
   // ---- commit sentence ----
 
   const commitText = useCallback((text) => {
     if (!text) return
-
     const m = modeRef.current
     if (m === 'drawing') {
-      const endMatch = text.match(END_RE)
-      if (endMatch) {
-        // Send everything before the keyword, then switch to waiting
-        const before = text.slice(0, endMatch.index).trim()
-        if (before && !disabledRef.current) {
-          onSubmitRef.current(before)
-        }
+      const em = text.match(END_RE)
+      if (em) {
+        const before = text.slice(0, em.index).trim()
+        if (before && !disabledRef.current) onSubmitRef.current(before)
         setMode('waiting')
         return
       }
-      if (!disabledRef.current) {
-        onSubmitRef.current(text)
-      }
+      if (!disabledRef.current) onSubmitRef.current(text)
     } else {
-      const startMatch = text.match(START_RE)
-      if (startMatch) {
+      const sm = text.match(START_RE)
+      if (sm) {
         setMode('drawing')
-        // Send anything after the keyword as a drawing command
-        const after = text.slice(startMatch.index + startMatch[0].length).trim()
-        if (after && !disabledRef.current) {
-          onSubmitRef.current(after)
-        }
+        const after = text.slice(sm.index + sm[0].length).trim()
+        if (after && !disabledRef.current) onSubmitRef.current(after)
       }
     }
   }, [])
@@ -88,13 +70,11 @@ export default function VoiceController({ onSubmit, disabled }) {
     finalRef.current = ''
     setTranscript('')
     commitText(text)
-    // fall through to restart below
     scheduleRestart()
   }, [commitText])
 
   const scheduleRestart = useCallback(() => {
     if (deadRef.current || hadErrorRef.current) return
-    // hard cooldown: max 1 restart per second
     const now = Date.now()
     if (now - lastRestartRef.current < 1000) return
     lastRestartRef.current = now
@@ -103,11 +83,10 @@ export default function VoiceController({ onSubmit, disabled }) {
     restartTimerRef.current = setTimeout(bootRec, 200)
   }, [clearAll, stopRec])
 
-  // ---- single recognition cycle (like voice-test.html) ----
+  // ---- single recognition cycle ----
 
   const bootRec = useCallback(() => {
     if (deadRef.current) return
-
     hadErrorRef.current = false
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -116,11 +95,10 @@ export default function VoiceController({ onSubmit, disabled }) {
       return
     }
 
-    // tear down any existing recognition
     stopRec()
 
     const rec = new SpeechRecognition()
-    rec.continuous = false     // one utterance per cycle
+    rec.continuous = false
     rec.interimResults = true
     rec.lang = 'zh-CN'
 
@@ -138,7 +116,6 @@ export default function VoiceController({ onSubmit, disabled }) {
       const display = finalRef.current + interim
       setTranscript(display)
 
-      // real-time keyword check
       const m = modeRef.current
       if (m === 'waiting') {
         const sm = display.match(START_RE)
@@ -154,9 +131,7 @@ export default function VoiceController({ onSubmit, disabled }) {
         const em = display.match(END_RE)
         if (em) {
           const before = display.slice(0, em.index).trim()
-          if (before && !disabledRef.current) {
-            onSubmitRef.current(before)
-          }
+          if (before && !disabledRef.current) onSubmitRef.current(before)
           finalRef.current = ''
           setTranscript('')
           setMode('waiting')
@@ -177,7 +152,7 @@ export default function VoiceController({ onSubmit, disabled }) {
       if (deadRef.current || recRef.current !== rec) return
       hadErrorRef.current = true
       if (e.error === 'not-allowed') {
-        setError('麦克风权限被拒绝，请在浏览器设置中允许后刷新页面')
+        setError('麦克风权限被拒绝，请在浏览器设置中允许后点击重试')
         setMicReady(false)
       } else if (e.error !== 'aborted') {
         setError('语音识别出错: ' + e.error)
@@ -188,7 +163,7 @@ export default function VoiceController({ onSubmit, disabled }) {
       if (deadRef.current) return
       if (recRef.current === rec) {
         recRef.current = null
-        if (hadErrorRef.current) return  // never restart after error
+        if (hadErrorRef.current) return
         if (finalRef.current.trim() && !silenceRef.current) {
           silenceRef.current = setTimeout(handleSilence, SILENCE_MS)
         } else if (!finalRef.current.trim()) {
@@ -208,10 +183,10 @@ export default function VoiceController({ onSubmit, disabled }) {
     }
   }, [stopRec, clearAll, handleSilence, scheduleRestart])
 
-  // bootstrap
+  // ---- bootstrap (no auto-start — wait for user gesture) ----
+
   useEffect(() => {
     deadRef.current = false
-    bootRec()
     return () => {
       deadRef.current = true
       clearAll()
@@ -219,47 +194,62 @@ export default function VoiceController({ onSubmit, disabled }) {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const restartDrawing = () => {
-    finalRef.current = ''
-    setTranscript('')
-    setMode('drawing')
+  // ---- user-triggered enable (provides user gesture for permission prompt) ----
+
+  const enableMic = () => {
     hadErrorRef.current = false
     lastRestartRef.current = 0
     setError(null)
+    setMicReady(false)
     stopRec()
-    scheduleRestart()
+    bootRec()
   }
+
+  // ---- render ----
 
   const barCls = mode === 'drawing' ? 'vc-bar vc-drawing' : 'vc-bar vc-waiting'
 
-  let hint
+  let content
   if (!micReady && !error) {
-    hint = '正在初始化麦克风...'
-  } else if (mode === 'waiting') {
-    hint = '说「开始绘画」进入纯语音绘图模式'
+    // Initial state: need user gesture to trigger permission prompt
+    content = (
+      <div className="vc-status">
+        <span className="vc-dot">🎤</span>
+        <span className="vc-hint">点击按钮启用语音识别</span>
+        <button className="vc-enable-btn" onClick={enableMic}>
+          启用麦克风
+        </button>
+      </div>
+    )
+  } else if (error) {
+    // Error state: show retry button (also user gesture for recovery)
+    content = (
+      <>
+        <div className="vc-status">
+          <span className="vc-dot">⚠️</span>
+          <span className="vc-hint vc-hint-err">{error}</span>
+          <button className="vc-enable-btn" onClick={enableMic}>
+            重试
+          </button>
+        </div>
+        {transcript && <div className="vc-live">{transcript}</div>}
+      </>
+    )
   } else {
-    hint = '正在绘画中... 说「结束绘画」退出'
+    // Active state: mic is live, show mode-specific UI
+    const hint = mode === 'waiting'
+      ? '说「开始绘画」进入纯语音绘图模式'
+      : '正在绘画中... 说「结束绘画」退出'
+    content = (
+      <>
+        <div className="vc-status">
+          <span className="vc-dot">{mode === 'drawing' ? '🟢' : '🔴'}</span>
+          <span className="vc-hint">{hint}</span>
+        </div>
+        {transcript && <div className="vc-live">{transcript}</div>}
+      </>
+    )
   }
 
-  return (
-    <div className={barCls}>
-      <div className="vc-status">
-        <span className="vc-dot">{mode === 'drawing' ? '🟢' : '🔴'}</span>
-        <span className="vc-hint">{hint}</span>
-        {mode === 'waiting' && micReady && (
-          <button className="vc-manual-start" onClick={restartDrawing}>
-            手动开始
-          </button>
-        )}
-      </div>
-
-      {transcript && (
-        <div className="vc-live">{transcript}</div>
-      )}
-
-      {error && (
-        <div className="vc-err">{error}</div>
-      )}
-    </div>
-  )
+  return <div className={barCls}>{content}</div>
 }
