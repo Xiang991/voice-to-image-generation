@@ -14,27 +14,28 @@
       ],
       "verification_commands": ["cd D:/ai-voice-painter && npm run dev"],
       "completed": true,
-      "passes": true
+      "passes": true,
+      "status": "approved"
     },
     {
       "id": "step-2",
       "title": "文字→Agent→Canvas 全栈闭环",
-      "description": "实现 TextInput 组件 + Agent 服务(仅 draw_shape 工具) + Canvas 画布组件(圆/矩/线)，串联成文字绘图的完整流程",
+      "description": "实现 TextInput 组件 + Agent 服务 + Canvas 画布(draw_shape + draw_svg)，串联成文字绘图的完整流程",
       "tier": 1,
       "depends_on": ["step-1"],
+      "status": "pending",
       "acceptance_criteria": [
         "输入'画红色圆' → Canvas 出现红色圆形",
-        "输入'画蓝色矩形，200x100' → 出现蓝色矩形",
-        "输入'画一条线从 (50,50) 到 (200,200)' → 出现线条",
+        "输入'画小狗' → SVG 绘制的小狗轮廓",
+        "输入'画蓝色矩形' → 出现蓝色矩形",
+        "输入'清空' → 画布变白",
         "颜色支持中文色名（红/蓝/绿/黄/黑/白等）",
-        "位置支持 left/right/center/top/bottom 描述",
-        "清空画布功能正常",
         "指令历史面板显示每条的文本、状态、时间"
       ],
       "verification_commands": [
         "cd D:/ai-voice-painter && npm run dev",
         "浏览器打开 localhost:5173",
-        "在文字输入框输入'画红色圆'，按下发送，观察 Canvas 出现红色圆形"
+        "输入'画红色圆'，观察 Canvas 出现红色圆形"
       ],
       "completed": false,
       "passes": false
@@ -45,6 +46,7 @@
       "description": "实现 VoiceInput 组件，Web Speech API 录音+转写，与现有文字→Agent→Canvas 管线对接",
       "tier": 2,
       "depends_on": ["step-2"],
+      "status": "pending",
       "acceptance_criteria": [
         "浏览器麦克风权限正常申请",
         "按住录音按钮说话、松开发送",
@@ -64,6 +66,7 @@
       "description": "实现 sceneRenderer + 5 个核心模板 (house/tree/sun/mountain/cloud)，Agent 新增 draw_scene 工具",
       "tier": 2,
       "depends_on": ["step-3"],
+      "status": "pending",
       "acceptance_criteria": [
         "5 个核心模板渲染正常（房子/树/太阳/山/云）",
         "Agent 可组合多个模板到 elements 数组",
@@ -83,6 +86,7 @@
       "description": "扩充到 15 个模板，支持复合指令多步骤执行、clear/undo 画布控制、重度 ASR 错误容错",
       "tier": 2,
       "depends_on": ["step-4"],
+      "status": "pending",
       "acceptance_criteria": [
         "15 个模板全部可用（house/tree/sun/mountain/cloud/flower/bench/road/star/heart/leaf/grass/river/fence/moon）",
         "'秋天的街道'/'日落海边'/'星空月夜' 场景正常",
@@ -104,6 +108,7 @@
       "description": "docs/design_document.md、Vercel 部署、README、演示录制",
       "tier": 3,
       "depends_on": ["step-5"],
+      "status": "pending",
       "acceptance_criteria": [
         "设计文档包含架构图、工具清单、模板列表、指令能力对比表",
         "Vercel 部署公网可访问",
