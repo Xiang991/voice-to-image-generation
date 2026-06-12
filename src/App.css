@@ -219,25 +219,13 @@ body {
   color: #8f8;
 }
 
-.vc-enable-btn {
-  padding: 8px 22px;
-  font-size: 15px;
-  font-weight: 700;
-  border: none;
-  border-radius: 8px;
-  background: #7c5cfc;
-  color: #fff;
-  cursor: pointer;
-  white-space: nowrap;
+.vc-denied {
+  background: #3a1e1e;
+  border: 1px solid #6a3a3a;
 }
 
-.vc-enable-btn:hover {
-  background: #9b7eff;
-}
-
-.vc-hint-err {
-  color: #f88;
-  font-size: 13px;
+.vc-denied .vc-hint {
+  color: #faa;
 }
 
 .vc-live {

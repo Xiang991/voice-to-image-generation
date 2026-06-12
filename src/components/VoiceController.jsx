@@ -10,6 +10,7 @@ export default function VoiceController({ onSubmit, disabled }) {
   const [transcript, setTranscript] = useState('')
   const [error, setError] = useState(null)
   const [micReady, setMicReady] = useState(false)
+  const [permDenied, setPermDenied] = useState(false)
 
   const recRef = useRef(null)
   const silenceRef = useRef(null)
@@ -19,6 +20,7 @@ export default function VoiceController({ onSubmit, disabled }) {
   const restartTimerRef = useRef(null)
   const hadErrorRef = useRef(false)
   const lastRestartRef = useRef(0)
+  const permWatcherRef = useRef(null)
 
   const onSubmitRef = useRef(onSubmit)
   const disabledRef = useRef(disabled)
@@ -82,6 +84,30 @@ export default function VoiceController({ onSubmit, disabled }) {
     stopRec()
     restartTimerRef.current = setTimeout(bootRec, 200)
   }, [clearAll, stopRec])
+
+  // ---- watch for browser permission changes (no refresh needed) ----
+
+  const watchPermission = useCallback(() => {
+    if (!navigator.permissions) return
+    navigator.permissions.query({ name: 'microphone' }).then((perm) => {
+      if (deadRef.current) return
+      permWatcherRef.current = perm
+      perm.onchange = () => {
+        if (perm.state === 'granted') {
+          // User enabled mic in browser settings → auto-restart
+          setPermDenied(false)
+          hadErrorRef.current = false
+          lastRestartRef.current = 0
+          setError(null)
+          bootRec()
+        } else if (perm.state === 'denied') {
+          setPermDenied(true)
+        }
+      }
+    }).catch(() => {
+      // Permissions API not available, ignore
+    })
+  }, [])
 
   // ---- single recognition cycle ----
 
@@ -152,8 +178,10 @@ export default function VoiceController({ onSubmit, disabled }) {
       if (deadRef.current || recRef.current !== rec) return
       hadErrorRef.current = true
       if (e.error === 'not-allowed') {
-        setError('麦克风权限被拒绝，请在浏览器设置中允许后点击重试')
+        setError('请在浏览器设置中允许麦克风权限，然后说「开始绘画」即可')
         setMicReady(false)
+        setPermDenied(true)
+        watchPermission()
       } else if (e.error !== 'aborted') {
         setError('语音识别出错: ' + e.error)
       }
@@ -177,79 +205,56 @@ export default function VoiceController({ onSubmit, disabled }) {
       rec.start()
       setMicReady(true)
       setError(null)
+      setPermDenied(false)
     } catch (e) {
       setError('启动语音识别失败: ' + (e.message || e))
       scheduleRestart()
     }
-  }, [stopRec, clearAll, handleSilence, scheduleRestart])
+  }, [stopRec, clearAll, handleSilence, scheduleRestart, watchPermission])
 
-  // ---- bootstrap (no auto-start — wait for user gesture) ----
+  // ---- bootstrap ----
 
   useEffect(() => {
     deadRef.current = false
+    bootRec()
     return () => {
       deadRef.current = true
       clearAll()
       stopRec()
+      if (permWatcherRef.current) {
+        permWatcherRef.current.onchange = null
+        permWatcherRef.current = null
+      }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- user-triggered enable (provides user gesture for permission prompt) ----
-
-  const enableMic = () => {
-    hadErrorRef.current = false
-    lastRestartRef.current = 0
-    setError(null)
-    setMicReady(false)
-    stopRec()
-    bootRec()
-  }
-
   // ---- render ----
 
-  const barCls = mode === 'drawing' ? 'vc-bar vc-drawing' : 'vc-bar vc-waiting'
+  const barCls = mode === 'drawing' ? 'vc-bar vc-drawing'
+    : permDenied ? 'vc-bar vc-denied'
+    : 'vc-bar vc-waiting'
 
-  let content
+  let hint
   if (!micReady && !error) {
-    // Initial state: need user gesture to trigger permission prompt
-    content = (
-      <div className="vc-status">
-        <span className="vc-dot">🎤</span>
-        <span className="vc-hint">点击按钮启用语音识别</span>
-        <button className="vc-enable-btn" onClick={enableMic}>
-          启用麦克风
-        </button>
-      </div>
-    )
-  } else if (error) {
-    // Error state: show retry button (also user gesture for recovery)
-    content = (
-      <>
-        <div className="vc-status">
-          <span className="vc-dot">⚠️</span>
-          <span className="vc-hint vc-hint-err">{error}</span>
-          <button className="vc-enable-btn" onClick={enableMic}>
-            重试
-          </button>
-        </div>
-        {transcript && <div className="vc-live">{transcript}</div>}
-      </>
-    )
+    hint = '正在请求麦克风权限...如果浏览器询问，请点击"允许"'
+  } else if (permDenied) {
+    hint = '请在浏览器设置中允许麦克风权限，允许后自动恢复'
+  } else if (mode === 'waiting') {
+    hint = '说「开始绘画」进入纯语音绘图模式'
   } else {
-    // Active state: mic is live, show mode-specific UI
-    const hint = mode === 'waiting'
-      ? '说「开始绘画」进入纯语音绘图模式'
-      : '正在绘画中... 说「结束绘画」退出'
-    content = (
-      <>
-        <div className="vc-status">
-          <span className="vc-dot">{mode === 'drawing' ? '🟢' : '🔴'}</span>
-          <span className="vc-hint">{hint}</span>
-        </div>
-        {transcript && <div className="vc-live">{transcript}</div>}
-      </>
-    )
+    hint = '正在绘画中... 说「结束绘画」退出'
   }
 
-  return <div className={barCls}>{content}</div>
+  return (
+    <div className={barCls}>
+      <div className="vc-status">
+        <span className="vc-dot">
+          {permDenied ? '🔒' : mode === 'drawing' ? '🟢' : micReady ? '🔴' : '🎤'}
+        </span>
+        <span className="vc-hint">{hint}</span>
+      </div>
+      {transcript && <div className="vc-live">{transcript}</div>}
+      {error && <div className="vc-err">{error}</div>}
+    </div>
+  )
 }
