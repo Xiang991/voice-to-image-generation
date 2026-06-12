@@ -139,9 +139,9 @@ export async function runAgent(userText, onToolCall) {
         })
       }
     } else {
-      return { text: msg.content || '' }
+      return { text: msg.content || '', trace: [...messages] }
     }
   }
 
-  return { text: '' }
+  return { text: '', trace: [...messages] }
 }
