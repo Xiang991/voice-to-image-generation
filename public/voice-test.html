@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>语音识别测试</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, 'Segoe UI', sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .test-box {
+      width: 400px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    h2 { font-size: 20px; color: #aaa; }
+    .btn {
+      width: 100%;
+      padding: 18px 24px;
+      font-size: 20px;
+      font-weight: 700;
+      border: 2px solid #7c5cfc;
+      border-radius: 12px;
+      background: #2a2a4a;
+      color: #ccc;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn.recording {
+      background: #4a1a2e;
+      border-color: #f44;
+      color: #faa;
+    }
+    .result {
+      width: 100%;
+      min-height: 60px;
+      padding: 14px;
+      border-radius: 8px;
+      background: #232340;
+      color: #ddd;
+      font-size: 18px;
+      text-align: center;
+      word-break: break-word;
+      line-height: 1.5;
+    }
+    .result.hint { color: #666; font-style: italic; font-size: 15px; }
+    .log {
+      width: 100%;
+      max-height: 200px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .log-item {
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: #232340;
+      font-size: 14px;
+      color: #bbb;
+    }
+    .log-item .time { color: #666; font-size: 11px; margin-right: 8px; }
+    .error {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      background: #4a2020;
+      color: #f88;
+      font-size: 14px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-box">
+    <h2>语音识别测试</h2>
+
+    <button id="micBtn" class="btn">按住说话</button>
+
+    <div id="result" class="result hint">松开按钮后这里显示识别结果</div>
+
+    <div id="log" class="log"></div>
+
+    <div id="error"></div>
+  </div>
+
+  <script>
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+
+    const btn = document.getElementById('micBtn')
+    const result = document.getElementById('result')
+    const log = document.getElementById('log')
+    const error = document.getElementById('error')
+
+    let recognition = null
+    let finalText = ''
+
+    if (!SpeechRecognition) {
+      btn.disabled = true
+      btn.textContent = '浏览器不支持'
+      error.innerHTML = '<div class="error">浏览器不支持语音识别，请使用 Chrome 或 Edge</div>'
+    }
+
+    function addLog(text) {
+      const now = new Date()
+      const time = now.toLocaleTimeString('zh-CN', { hour12: false })
+      const item = document.createElement('div')
+      item.className = 'log-item'
+      item.innerHTML = `<span class="time">${time}</span>${text}`
+      log.prepend(item)
+
+      // keep last 50
+      while (log.children.length > 50) log.lastChild.remove()
+    }
+
+    function start() {
+      if (btn.disabled) return
+
+      recognition = new SpeechRecognition()
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.lang = 'zh-CN'
+
+      finalText = ''
+
+      recognition.onresult = (event) => {
+        let interim = ''
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const r = event.results[i]
+          if (r.isFinal) finalText += r[0].transcript
+          else interim += r[0].transcript
+        }
+        const display = finalText + interim
+        result.textContent = display || '...'
+        result.classList.remove('hint')
+      }
+
+      recognition.onerror = (event) => {
+        if (event.error === 'aborted') return
+        const msg = event.error === 'not-allowed'
+          ? '麦克风权限被拒绝'
+          : `识别错误: ${event.error}`
+        error.innerHTML = `<div class="error">${msg}</div>`
+        addLog('❌ ' + msg)
+        stopUI()
+      }
+
+      recognition.onend = () => {
+        stopUI()
+      }
+
+      recognition.start()
+      btn.textContent = '松开发送'
+      btn.classList.add('recording')
+      result.textContent = '正在聆听...'
+      result.classList.add('hint')
+      error.innerHTML = ''
+
+      addLog('🎤 开始录音')
+    }
+
+    function stop() {
+      if (!recognition) return
+      try { recognition.stop() } catch (_) { /* ok */ }
+      recognition = null
+    }
+
+    function stopUI() {
+      btn.textContent = '按住说话'
+      btn.classList.remove('recording')
+
+      const text = finalText.trim()
+      if (text) {
+        result.textContent = text
+        result.classList.remove('hint')
+        addLog('✅ 识别: ' + text)
+      } else if (!finalText) {
+        result.textContent = '松开按钮后这里显示识别结果'
+        result.classList.add('hint')
+      }
+      finalText = ''
+    }
+
+    // Pointer events (unified mouse + touch)
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault()
+      start()
+    })
+
+    btn.addEventListener('pointerup', (e) => {
+      e.preventDefault()
+      stop()
+    })
+
+    btn.addEventListener('pointerleave', () => {
+      if (recognition) stop()
+    })
+  </script>
+</body>
+</html>
