@@ -13,6 +13,8 @@ export default function VoiceController({ onSubmit, disabled }) {
   const [permDenied, setPermDenied] = useState(false)
 
   const recRef = useRef(null)
+  const bootRecRef = useRef(null)
+  const scheduleRestartRef = useRef(null)
   const silenceRef = useRef(null)
   const finalRef = useRef('')
   const modeRef = useRef('waiting')
@@ -38,7 +40,7 @@ export default function VoiceController({ onSubmit, disabled }) {
 
   const stopRec = useCallback(() => {
     const r = recRef.current
-    if (r) { recRef.current = null; try { r.stop() } catch (_) {} }
+    if (r) { recRef.current = null; try { r.stop() } catch { /* already stopped */ } }
   }, [])
 
   // ---- commit sentence ----
@@ -65,24 +67,28 @@ export default function VoiceController({ onSubmit, disabled }) {
     }
   }, [])
 
-  // ---- silence → commit then restart ----
+  // ---- silence -> commit then restart ----
+  // Use refs to break circular dependency:
+  //   handleSilence -> scheduleRestart -> bootRec -> handleSilence
+  // Each callback reads the latest version via .current at call time,
+  // avoiding forward-reference constraints in the source order.
 
   const handleSilence = useCallback(() => {
     const text = finalRef.current.trim()
     finalRef.current = ''
     setTranscript('')
     commitText(text)
-    scheduleRestart()
+    scheduleRestartRef.current?.()
   }, [commitText])
 
-  const scheduleRestart = useCallback(() => {
+  scheduleRestartRef.current = useCallback(() => { // eslint-disable-line react-hooks/refs
     if (deadRef.current || hadErrorRef.current) return
     const now = Date.now()
     if (now - lastRestartRef.current < 1000) return
     lastRestartRef.current = now
     clearAll()
     stopRec()
-    restartTimerRef.current = setTimeout(bootRec, 200)
+    restartTimerRef.current = setTimeout(() => bootRecRef.current?.(), 200)
   }, [clearAll, stopRec])
 
   // ---- watch for browser permission changes (no refresh needed) ----
@@ -94,12 +100,11 @@ export default function VoiceController({ onSubmit, disabled }) {
       permWatcherRef.current = perm
       perm.onchange = () => {
         if (perm.state === 'granted') {
-          // User enabled mic in browser settings → auto-restart
           setPermDenied(false)
           hadErrorRef.current = false
           lastRestartRef.current = 0
           setError(null)
-          bootRec()
+          bootRecRef.current?.()
         } else if (perm.state === 'denied') {
           setPermDenied(true)
         }
@@ -151,7 +156,7 @@ export default function VoiceController({ onSubmit, disabled }) {
           setTranscript(after)
           setMode('drawing')
           stopRec()
-          scheduleRestart()
+          scheduleRestartRef.current?.()
         }
       } else if (m === 'drawing') {
         const em = display.match(END_RE)
@@ -162,7 +167,7 @@ export default function VoiceController({ onSubmit, disabled }) {
           setTranscript('')
           setMode('waiting')
           stopRec()
-          scheduleRestart()
+          scheduleRestartRef.current?.()
         }
       }
     }
@@ -195,7 +200,7 @@ export default function VoiceController({ onSubmit, disabled }) {
         if (finalRef.current.trim() && !silenceRef.current) {
           silenceRef.current = setTimeout(handleSilence, SILENCE_MS)
         } else if (!finalRef.current.trim()) {
-          scheduleRestart()
+          scheduleRestartRef.current?.()
         }
       }
     }
@@ -208,15 +213,17 @@ export default function VoiceController({ onSubmit, disabled }) {
       setPermDenied(false)
     } catch (e) {
       setError('启动语音识别失败: ' + (e.message || e))
-      scheduleRestart()
+      scheduleRestartRef.current?.()
     }
-  }, [stopRec, clearAll, handleSilence, scheduleRestart, watchPermission])
+  }, [stopRec, clearAll, handleSilence, watchPermission])
+
+  bootRecRef.current = bootRec // eslint-disable-line react-hooks/refs
 
   // ---- bootstrap ----
 
   useEffect(() => {
     deadRef.current = false
-    bootRec()
+    bootRecRef.current?.()
     return () => {
       deadRef.current = true
       clearAll()

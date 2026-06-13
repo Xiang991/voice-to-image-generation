@@ -3,7 +3,8 @@ import Canvas from './components/Canvas.jsx'
 import VoiceController from './components/VoiceController.jsx'
 import History from './components/History.jsx'
 import { runAgent } from './services/agent.js'
-import { resolveColor } from './utils/colors.js'
+import { speak } from './services/tts.js'
+import { generateCanvasSummary } from './services/canvasSummary.js'
 import { CONFIG } from './config.js'
 
 let nextId = 1
@@ -19,54 +20,78 @@ export default function App() {
     canvasRef.current?.setLayers(layers)
   }, [layers])
 
+  function executeActions(actions) {
+    const newLayers = [...layers]
+    for (const action of actions) {
+      switch (action.type) {
+        case 'draw_shape':
+          newLayers.push({ id: nextId++, type: 'shape', ...action.params })
+          break
+        case 'draw_svg':
+          newLayers.push({
+            id: nextId++,
+            type: 'svg',
+            svg: action.params.svg,
+            x: action.params.x ?? 0,
+            y: action.params.y ?? 0,
+            scale: action.params.scale ?? 1,
+          })
+          break
+        case 'canvas_control':
+          if (action.params.action === 'clear') newLayers.length = 0
+          else if (action.params.action === 'undo') newLayers.pop()
+          break
+      }
+    }
+    setLayers(newLayers)
+  }
+
   const handleCommand = async (text) => {
     setLoading(true)
     setStatus('思考中...')
 
-    const newLayers = [...layers]
-
     try {
-      const result = await runAgent(text, async (name, args) => {
-        switch (name) {
-          case 'draw_shape': {
-            args.color = resolveColor(args.color)
-            newLayers.push({ id: nextId++, type: 'shape', ...args })
-            break
-          }
-          case 'draw_svg': {
-            newLayers.push({
-              id: nextId++,
-              type: 'svg',
-              svg: args.svg,
-              x: args.x ?? 0,
-              y: args.y ?? 0,
-              scale: args.scale ?? 1,
-            })
-            break
-          }
-          case 'canvas_control': {
-            if (args.action === 'clear') newLayers.length = 0
-            else if (args.action === 'undo') newLayers.pop()
-            break
-          }
-        }
-        setLayers([...newLayers])
-        return { success: true }
-      })
+      const summary = generateCanvasSummary(layers)
+      const response = await runAgent(text, summary)
 
-      setLayers([...newLayers])
-      setHistory((prev) => [
-        { id: nextId++, text, status: 'success', timestamp: new Date() },
-        ...prev,
-      ])
-      setStatus('就绪')
+      switch (response.status) {
+        case 'success':
+          executeActions(response.actions)
+          setStatus('就绪')
+          speak(response.summary)
+          setHistory((prev) => [
+            { id: nextId++, text, status: 'success', summary: response.summary, timestamp: new Date() },
+            ...prev,
+          ])
+          break
+
+        case 'optimized':
+          executeActions(response.actions)
+          setStatus('已优化')
+          speak('已优化：' + response.summary)
+          setHistory((prev) => [
+            { id: nextId++, text, status: 'optimized', summary: response.summary, timestamp: new Date() },
+            ...prev,
+          ])
+          break
+
+        case 'error':
+          setStatus('没理解')
+          speak('没理解您的指令，请再说一遍')
+          setHistory((prev) => [
+            { id: nextId++, text, status: 'error', summary: response.summary, timestamp: new Date() },
+            ...prev,
+          ])
+          break
+      }
     } catch (err) {
       console.error('Agent error:', err)
+      speak('出错了，请重试')
+      setStatus('出错')
       setHistory((prev) => [
-        { id: nextId++, text, status: 'error', timestamp: new Date() },
+        { id: nextId++, text, status: 'error', summary: err.message, timestamp: new Date() },
         ...prev,
       ])
-      setStatus('出错：' + (err.message || '未知错误'))
     } finally {
       setLoading(false)
     }

@@ -22,10 +22,11 @@ const SYSTEM_PROMPT = `你是一个绘画助手。用户通过语音告诉你画
 
 规则：
 1. 识别同音错字：发=画、园=圆、巨形=矩形、正方型=正方形
-2. status: 成功=success, 优化了模糊指令=optimized, 无法理解=error
+2. 颜色必须精确匹配：红=red、蓝=blue、绿=green、黄=yellow、黑=black、白=white、橙=orange、紫=purple、粉=pink、灰=gray、棕=brown、青=cyan
 3. 复合指令用 actions 数组返回多个动作
-4. 优先 draw_shape 画几何图形，draw_svg 画复杂物体
-5. 颜色中英文都支持：红/red、蓝/blue、绿/green、黄/yellow、黑/black、白/white、橙/orange、紫/purple、粉/pink、灰/gray、棕/brown、青/cyan`;
+4. 优先 draw_shape 画几何图形，draw_svg 画复杂物体（小狗、房子等）
+5. status: 成功=success, 优化了模糊指令=optimized, 无法理解=error
+6. 坐标在画布中央区域（400,300 附近）`;
 
 app.post('/api/agent', async (req, res) => {
   try {
@@ -53,6 +54,7 @@ app.post('/api/agent', async (req, res) => {
 
     if (!response.ok) {
       const errText = await response.text();
+      console.error(`LLM API error ${response.status}: ${errText}`);
       return res.status(response.status).json({ status: 'error', summary: `API ${response.status}` });
     }
 
