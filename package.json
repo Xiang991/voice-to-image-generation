@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "fabric": "^7.4.0",
+    "framer-motion": "^12.40.0",
+    "lucide-react": "^1.18.0",
     "openai": "^6.42.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
