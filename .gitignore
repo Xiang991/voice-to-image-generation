@@ -26,5 +26,9 @@ dist-ssr
 # Environment
 .env
 
+# Claude skills (local dev tools)
+.claude/skills/
+.claude/scheduled_tasks.json
+
 # Temp docs
 temp_doc/

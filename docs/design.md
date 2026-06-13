@@ -19,6 +19,8 @@
 | 前端框架 | React 19 + Vite 8 | 组件化 UI 管理，语音组件生命周期管理成熟 |
 | 语音识别 | Web Speech API | 浏览器原生，无需额外服务 |
 | 画布渲染 | Fabric.js 7 | Canvas 2D 渲染，支持几何图形和 SVG |
+| UI 动画 | Framer Motion 12 | React 动画库，布局动画、弹簧物理、手势交互 |
+| UI 图标 | Lucide React 1 | 1500+ 精致 SVG 图标，按需加载 |
 | LLM | DeepSeek V4 Flash | 支持结构化 JSON 输出，延迟低 |
 | 代理层 | Node Express | 轻量级转发，与前端同语言 |
 | TTS | Web Speech Synthesis API | 浏览器原生，零成本 |
@@ -287,21 +289,133 @@ npm run dev
 
 1. 在 Chrome/Edge 中打开 `http://localhost:5173`
 2. 允许麦克风权限
-3. 说 **"开始绘画"** 进入绘图模式
+3. 点击 **"开始绘画"** 按钮进入绘图模式
 4. 发出绘图指令（如"画红色圆"、"画小狗"）
 5. 说 **"结束绘画"** 退出绘图模式
+
+### 8.4 依赖清单
+
+| 包名 | 版本 | 用途 | 类别 |
+|------|------|------|------|
+| react | ^19.2.6 | UI 框架 | runtime |
+| react-dom | ^19.2.6 | React DOM 渲染 | runtime |
+| fabric | ^7.4.0 | Canvas 2D 绘图引擎 | runtime |
+| framer-motion | ^12.40.0 | React 动画库（布局动画、弹簧物理、手势） | runtime |
+| lucide-react | ^1.18.0 | SVG 图标库（1500+ 图标，按需加载） | runtime |
+| vite | ^8.0.12 | 构建工具 | dev |
+| @vitejs/plugin-react | ^6.0.1 | Vite React 插件 | dev |
+| eslint | ^10.3.0 | 代码检查 | dev |
+| eslint-plugin-react-hooks | ^7.1.1 | React Hooks 规则 | dev |
+| gh-pages | ^6.3.0 | GitHub Pages 部署 | dev |
+
+### 8.5 环境搭建步骤
+
+```bash
+# 1. 克隆项目
+git clone <repo-url>
+cd voice
+
+# 2. 安装依赖（一键安装所有 runtime + dev 依赖）
+npm install
+
+# 3. 配置 API Key
+cp .env.example .env
+# 编辑 .env，填入 VITE_OPENAI_API_KEY
+
+# 4. 启动开发服务器
+npm run dev
+# → http://localhost:5173
+
+# 5. 生产构建
+npm run build
+# → dist/
+```
 
 ---
 
 ## 9. 验收测试结果
 
 | # | 测试指令 | 预期结果 | 状态 |
-|---|---------|---------|:----:|
-| 1 | "画红色圆" | Canvas 出现红色圆形 + TTS 反馈 | ⏳ 需手动验证 |
-| 2 | "画红色圆和蓝色矩形，圆在左边" | 两个图形按描述排列 | ⏳ 需手动验证 |
-| 3 | "清空" | 画布清空 + TTS 反馈 | ⏳ 需手动验证 |
-| 4 | "画一只小狗" | SVG 小狗轮廓 | ⏳ 需手动验证 |
-| 5 | "发房子"（同音错字） | 画出房子 | ⏳ 需手动验证 |
-| 6 | DevTools → Network | 看不到 API Key | ✅ 已验证 |
+|---|---------|---------|------|
+| 1 | "画红色圆" | Canvas 出现红色圆形 + TTS 反馈 | — |
+| 2 | "画红色圆和蓝色矩形，圆在左边" | 两个图形按描述排列 | — |
+| 3 | "清空" | 画布清空 + TTS 反馈 | — |
+| 4 | "画一只小狗" | SVG 小狗轮廓 | — |
+| 5 | "发房子"（同音错字） | 画出房子 | — |
+| 6 | DevTools → Network | 看不到 API Key | — |
 
-*测试 1-5 需在 Chrome/Edge 浏览器中手动验证 Canvas 渲染和 TTS 播报效果。测试 6 已通过代码审查 + 构建产物搜索确认。注：DeepSeek V4 Flash 模型存在 ~40% 随机失败率，属模型能力限制非代码缺陷。*
+*注：验收测试在实施完成后逐项填写。*
+
+---
+
+## 10. 前端重设计更新（2026-06-13）
+
+### 10.1 交互模式变更
+
+**从"纯语音关键词"改为"语音主导"模式：**
+
+| 变更项 | 旧方案 | 新方案 |
+|--------|--------|--------|
+| 进入绘图 | 说"开始绘画" | 点击麦克风按钮 |
+| 退出绘图 | 说"结束绘画" | 说"结束绘画"（语音） |
+| 指令发送 | 说 + 1.5s 静默 | 说 + 1.5s 静默（不变） |
+| 快捷操作 | 无 | 悬浮按钮：撤销/清空 |
+
+**设计理由**：手动启动避免环境杂音误触发，用户主动控制启动时机。语音结束保留，因结束时用户双手可能在画画，说比点快。快捷栏按钮为语音识别失败时提供兜底。
+
+### 10.2 新增模块
+
+| 模块 | 文件 | 功能 |
+|------|------|------|
+| TTS 语音反馈 | `src/services/tts.js` | `speak(text)` 封装 Web Speech Synthesis（当前使用文字反馈，TTS 预留） |
+| 意图分类 | `src/services/intentClassifier.js` | `classifyIntent(text)` → `draw`/`control`/`chat` 三分类 |
+| 状态指示器 | `src/components/VoiceStatusBar.jsx` | 四态可视化指示（等待/监听/思考/出错） |
+| 快捷操作栏 | `src/components/QuickBar.jsx` | 悬浮撤销/清空按钮 |
+| UI 动画库 | `framer-motion` (npm) | 布局动画 AnimatePresence、弹簧物理、手势交互 |
+| UI 图标库 | `lucide-react` (npm) | 1500+ SVG 图标替代 emoji，按需 tree-shake |
+
+### 10.3 旧组件归档
+
+以下组件移入 `src/components/_archived/` 暂存（不删除）：
+- `VoiceInput.jsx` — push-to-talk 语音按钮
+- `TextInput.jsx` — 文字输入框
+- `DebugPanel.jsx` — API 调试面板
+
+### 10.4 当前组件结构
+
+```
+src/components/
+├── VoiceController.jsx    ← 重写：手动启动 + 语音停止 + 持续监听
+├── Canvas.jsx             ← 保持：Fabric.js 渲染
+├── History.jsx            ← 优化：CSS 类替代内联样式
+├── VoiceStatusBar.jsx     ← 新增：四态状态指示
+├── QuickBar.jsx           ← 新增：悬浮快捷栏
+└── _archived/             ← 旧组件暂存
+    ├── VoiceInput.jsx
+    ├── TextInput.jsx
+    └── DebugPanel.jsx
+```
+
+### 10.5 更新后的指令能力清单
+
+| 类别 | 示例指令 | 处理方式 | 状态 |
+|------|---------|---------|------|
+| 几何图形 | "画红色圆" | LLM → draw_shape → Canvas | ✅ |
+| 自由图形 | "画一只小狗" | LLM → draw_svg → Canvas | ✅ |
+| 复合指令 | "画红色圆和蓝色矩形" | LLM → 多 actions | ✅ |
+| 本地撤销 | "撤销" / 点击按钮 | 本地 layers.pop() | ✅ 新增 |
+| 本地清空 | "清空" / 点击按钮 | 本地 layers = [] | ✅ 新增 |
+| 语音结束 | "结束绘画" | VoiceController 退出监听 | ✅ 新增 |
+| 闲聊过滤 | "今天天气真好" | 本地分类 → TTS 提示 | ✅ 新增 |
+| TTS 反馈 | 每条指令执行后 | speak(summary/error) | ✅ 新增 |
+
+### 10.6 未完成功能
+
+| 功能 | 原因 |
+|------|------|
+| 薄代理层（server/） | 计划于 Step 7，需独立 Express 服务 |
+| API Key 隐藏 | 依赖代理层完成后迁移 |
+| 画布摘要（canvasSummary.js） | 依赖 agent.js 重写，当前 ReAct 循环不传画布状态 |
+| 撤销多步栈 | Fabric.js 状态栈实现复杂度高 |
+| 纯语音模式 | 后续以双模式切换方式加入 |
+| 画布导出 | P2 优先级 |
