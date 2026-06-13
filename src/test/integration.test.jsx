@@ -129,14 +129,14 @@ describe('App integration — 完整语音→绘图链路', () => {
 
   // ========== draw 失败 ==========
   describe('agent 错误处理', () => {
-    it('agent 抛出异常 → status 显示"出错"', async () => {
+    it('agent 抛出异常 → status 显示错误消息', async () => {
       runAgent.mockRejectedValueOnce(new Error('网络错误'))
 
       render(<App />)
       submitCommand('画一只小猫')
 
       await waitFor(() => {
-        expect(screen.getByText('出错')).toBeInTheDocument()
+        expect(screen.getByText('抱歉，出了点问题，请再试一次')).toBeInTheDocument()
       })
     })
 
@@ -147,7 +147,7 @@ describe('App integration — 完整语音→绘图链路', () => {
       submitCommand('画一棵树')
 
       await waitFor(() => {
-        expect(screen.getByText('出错')).toBeInTheDocument()
+        expect(screen.getByText('抱歉，出了点问题，请再试一次')).toBeInTheDocument()
       })
 
       // "画一棵树" 同时出现在 guidance chip 和 history 中
@@ -164,7 +164,7 @@ describe('App integration — 完整语音→绘图链路', () => {
       submitCommand('你好')
 
       await waitFor(() => {
-        expect(screen.getByText('请说绘图指令，例如"画红色圆"')).toBeInTheDocument()
+        expect(screen.getByText('请说绘图指令，例如画红色圆')).toBeInTheDocument()
       })
 
       expect(runAgent).not.toHaveBeenCalled()

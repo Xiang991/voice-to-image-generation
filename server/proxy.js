@@ -6,6 +6,14 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
+const LLM_TIMEOUT_MS = 30_000;
+const API_KEY = process.env.DEEPSEEK_API_KEY;
+
+if (!API_KEY) {
+  console.error('缺少 DEEPSEEK_API_KEY 环境变量，请在 server/.env 中配置');
+  process.exit(1);
+}
+
 const SYSTEM_PROMPT = `你是一个绘画助手。用户通过语音告诉你画什么。
 
 输出格式（严格 JSON）：
@@ -28,6 +36,18 @@ const SYSTEM_PROMPT = `你是一个绘画助手。用户通过语音告诉你画
 5. status: 成功=success, 优化了模糊指令=optimized, 无法理解=error
 6. 坐标在画布中央区域（400,300 附近）`;
 
+function extractJson(text) {
+  const trimmed = text.trim()
+  // strip ```json / ``` fences
+  const fence = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n\s*```$/)
+  if (fence) return fence[1].trim()
+  // strip leading/trailing ``` when the fence is on the same line
+  if (trimmed.startsWith('```json') || trimmed.startsWith('```')) {
+    return trimmed.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim()
+  }
+  return trimmed
+}
+
 app.post('/api/agent', async (req, res) => {
   try {
     const { text, canvasSummary } = req.body;
@@ -37,20 +57,34 @@ app.post('/api/agent', async (req, res) => {
       userContent = `当前画布状态：${JSON.stringify(canvasSummary)}\n\n用户指令：${text}`;
     }
 
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: process.env.MODEL || 'deepseek-v4-flash',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userContent }
-        ]
-      })
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+
+    let response;
+    try {
+      response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          model: process.env.MODEL || 'deepseek-v4-flash',
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: userContent }
+          ]
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchErr) {
+      clearTimeout(timer);
+      if (fetchErr.name === 'AbortError') {
+        return res.status(504).json({ status: 'error', summary: 'LLM 响应超时，请重试' });
+      }
+      throw fetchErr;
+    }
+    clearTimeout(timer);
 
     if (!response.ok) {
       const errText = await response.text();
@@ -66,14 +100,15 @@ app.post('/api/agent', async (req, res) => {
 
     let parsed;
     try {
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(extractJson(content));
     } catch {
       return res.json({ status: 'error', actions: [], summary: '模型返回格式错误' });
     }
 
     res.json(parsed);
   } catch (err) {
-    res.status(500).json({ status: 'error', summary: err.message });
+    console.error('Unexpected proxy error:', err.message || err);
+    res.status(500).json({ status: 'error', summary: '服务器内部错误，请稍后重试' });
   }
 });
 
