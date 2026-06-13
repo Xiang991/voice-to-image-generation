@@ -1,104 +1,86 @@
-import { useRef, forwardRef, useImperativeHandle, useEffect } from 'react'
-import {
-  Canvas as FabricCanvas,
-  Rect,
-  Circle,
-  Line,
-  loadSVGFromString,
-  Group,
-} from 'fabric'
+import { useRef, forwardRef, useImperativeHandle } from 'react'
 
-let loadGen = 0
+let renderGen = 0
 
-function createShape(layer) {
+function drawShape(ctx, layer) {
   switch (layer.shape) {
-    case 'circle':
-      return new Circle({
-        radius: layer.radius || 50,
-        fill: layer.color,
-        left: layer.x,
-        top: layer.y,
-        originX: 'center',
-        originY: 'center',
-      })
+    case 'circle': {
+      const r = layer.radius || 50
+      ctx.beginPath()
+      ctx.arc(layer.x, layer.y, r, 0, Math.PI * 2)
+      ctx.fillStyle = layer.color
+      ctx.fill()
+      break
+    }
     case 'rect': {
       const w = layer.width || 100
       const h = layer.height || 80
-      return new Rect({
-        width: w,
-        height: h,
-        fill: layer.color,
-        left: layer.x,
-        top: layer.y,
-        originX: 'center',
-        originY: 'center',
-      })
+      ctx.fillStyle = layer.color
+      ctx.fillRect(layer.x - w / 2, layer.y - h / 2, w, h)
+      break
     }
     case 'line':
-      return new Line(
-        [layer.x, layer.y, layer.x2 ?? layer.x + 100, layer.y2 ?? layer.y],
-        { stroke: layer.color, strokeWidth: 2 },
-      )
-    default:
-      return null
+      ctx.beginPath()
+      ctx.moveTo(layer.x, layer.y)
+      ctx.lineTo(layer.x2 ?? layer.x + 100, layer.y2 ?? layer.y)
+      ctx.strokeStyle = layer.color
+      ctx.lineWidth = 2
+      ctx.stroke()
+      break
   }
 }
 
-async function addSvg(canvas, layer, gen) {
+function drawSvg(ctx, layer, gen) {
   try {
-    const parsed = await loadSVGFromString(layer.svg)
-    if (gen !== loadGen) return
-    if (!parsed.objects || parsed.objects.length === 0) return
-    const group = new Group(parsed.objects, {
-      left: layer.x ?? 0,
-      top: layer.y ?? 0,
-      scaleX: layer.scale ?? 1,
-      scaleY: layer.scale ?? 1,
-    })
-    canvas.add(group)
-    canvas.renderAll()
+    const blob = new Blob([layer.svg], { type: 'image/svg+xml' })
+    const url = URL.createObjectURL(blob)
+    const img = new Image()
+    img.onload = () => {
+      if (gen !== renderGen) return
+      const scale = layer.scale ?? 1
+      const x = layer.x ?? 0
+      const y = layer.y ?? 0
+      ctx.drawImage(img, x, y, img.naturalWidth * scale, img.naturalHeight * scale)
+      URL.revokeObjectURL(url)
+    }
+    img.onerror = () => {
+      console.error('SVG 加载失败:', layer.svg?.substring(0, 80))
+      URL.revokeObjectURL(url)
+    }
+    img.src = url
   } catch (e) {
-    console.error('SVG 加载失败:', e)
+    console.error('SVG 渲染异常:', e)
   }
 }
 
 const Canvas = forwardRef(function Canvas({ width = 800, height = 600 }, ref) {
   const canvasElRef = useRef(null)
-  const fabricRef = useRef(null)
-
-  useEffect(() => {
-    const fabric = new FabricCanvas(canvasElRef.current, {
-      width,
-      height,
-      backgroundColor: '#ffffff',
-      selection: false,
-      renderOnAddRemove: false,
-    })
-    fabricRef.current = fabric
-    return () => { fabric.dispose() }
-  }, [width, height])
 
   useImperativeHandle(ref, () => ({
     setLayers(layers) {
-      const canvas = fabricRef.current
-      if (!canvas) return
+      const el = canvasElRef.current
+      if (!el) return
+      const ctx = el.getContext('2d')
+      if (!ctx) return
 
-      loadGen++
-      const gen = loadGen
+      renderGen++
+      const gen = renderGen
 
-      canvas.clear()
-      canvas.backgroundColor = '#ffffff'
+      ctx.clearRect(0, 0, width, height)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, width, height)
 
       for (const layer of layers) {
         if (layer.type === 'shape') {
-          const obj = createShape(layer)
-          if (obj) canvas.add(obj)
-        } else if (layer.type === 'svg') {
-          addSvg(canvas, layer, gen)
+          drawShape(ctx, layer)
         }
       }
 
-      canvas.renderAll()
+      for (const layer of layers) {
+        if (layer.type === 'svg') {
+          drawSvg(ctx, layer, gen)
+        }
+      }
     },
   }))
 
