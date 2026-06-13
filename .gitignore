@@ -32,3 +32,6 @@ dist-ssr
 
 # Temp docs
 temp_doc/
+
+# Benchmark results (generated artifacts)
+server/benchmark/results/
