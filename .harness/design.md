@@ -4,19 +4,56 @@
 
 纯语音控制的绘图工具。用户通过语音指令完成绘图创作。
 
-**核心机制：** 浏览器 Web Speech API 语音识别 → DeepSeek V4 Agent (ReAct) 理解指令 → 调用绘图工具执行 → Canvas 显示结果。
+**核心机制：** 浏览器 Web Speech API 语音识别 → 厚前端解析指令 → 薄代理透传 → DeepSeek LLM 输出 JSON → 前端状态判断 → Canvas 渲染 + TTS 反馈。
 
-## 技术架构
+## 总体架构：厚前端 + 薄代理 + 纯云 LLM
 
 ```
-交互层 (VoiceInput + 文本 fallback + Canvas 画布 + 历史列表 + 状态栏)
-    ↓ 文字
-Agent 循环层 (DeepSeek V4 ReAct: 思考→工具调用→检查结果)
-    ↓ tool_call
-执行层 (draw_shape / draw_svg / draw_scene / canvas_control)
-    ↓ end_turn
-交互层 (Canvas 更新 + 状态提示)
+┌─────────────────────────────────────────────────────────────┐
+│  用户层                                                      │
+│  用户语音输入指令                                            │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│  前端层（厚前端）                                             │
+│                                                             │
+│  ① ASR 转文本  ← VoiceController (Web Speech API)           │
+│  ② 调用代理层  ← agent.js (fetch POST)                      │
+│  ③ 解析 JSON   ← 解析 LLM 返回的 { status, actions }         │
+│  ④ 状态判断    ← success / optimized / error                 │
+│  ⑤ 绘图 + TTS  ← Canvas.jsx 渲染 + tts.js 语音反馈           │
+│  ⑥ 存储画布    ← canvasSummary.js 更新画布状态               │
+└────────────────────────────┬────────────────────────────────┘
+                             │ { text, canvasSummary }
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│  中间层（薄代理）                                             │
+│  Express 服务                                               │
+│  ① 接收文本 + 画布摘要                                       │
+│  ② 注入 API Key + 系统提示词                                  │
+│  ③ 转发 LLM                                                 │
+│  ④ 透传 JSON 返回前端                                        │
+│  代码量：~30 行，无分支判断                                    │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│  云端 LLM（DeepSeek V4 Flash）                                │
+│  理解自然语言 → 输出结构化 JSON                                │
+│  { status, actions[], summary }                              │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+### 架构原则
+
+| 层级 | 职责 | 决策权 |
+|------|------|--------|
+| 前端（厚） | ASR / 调代理 / 解析 JSON / 状态判断 / 渲染 / TTS / 存储 | 全部业务判断 |
+| 代理（薄） | 接收请求 / 加 Key / 转发 / 透传 | 无（纯透传） |
+| LLM（云） | 理解自然语言 / 输出结构化指令 | 仅理解输出 |
+
+关键设计：**所有智能在前端**。前端解析 LLM 返回的 JSON 后，根据 `status` 标签做分支判断（成功执行 / 已优化 / 报错重说）。代理层不做任何业务逻辑判断。
 
 ## 技术选型
 
@@ -24,67 +61,83 @@ Agent 循环层 (DeepSeek V4 ReAct: 思考→工具调用→检查结果)
 |------|------|
 | 前端框架 | React 19 + Vite 8 |
 | 语音识别 | Web Speech API |
-| Agent LLM | DeepSeek V4 Flash (function calling) |
-| 几何绘图 | HTML5 Canvas 2D |
-| 自由图形 | SVG → Blob → Image → Canvas drawImage |
-| 场景模板 | Canvas 组合函数 (模板可扩充) |
-| 后端 | 无 (纯静态) |
-| 部署 | Vercel |
+| 画布渲染 | Fabric.js 7 |
+| Agent LLM | DeepSeek V4 Flash (JSON 直出) |
+| 代理层 | Node Express (仅转发) |
+| TTS | Web Speech Synthesis API |
 
-## 工具系统
+## 数据流
 
-### draw_shape — 几何图形
-- 形状：circle / rect / line
-- 参数：颜色（中文色名/hex）、位置（left/center/right/top/bottom）、尺寸
-- 适用：精确几何指令（"画红色圆"、"画蓝色矩形"）
+```
+用户说 "画红色圆"
+  │
+  ▼ ① VoiceController (Web Speech API → 文本)
+"画红色圆"
+  │
+  ▼ ② agent.js → fetch POST /api/agent
+  { text: "画红色圆", canvasSummary: [] }
+  │
+  ▼ ③ Express 代理 → 注入 Key → POST DeepSeek
+  │
+  ▼ ④ DeepSeek → 返回 JSON
+  { "status": "success", "actions": [{...}], "summary": "画了一个红色的圆" }
+  │
+  ▼ ⑤ 代理透传 → 前端解析
+  │
+  ▼ ⑥ App.jsx: status === "success"
+  ├── Canvas.jsx: 渲染红色圆形
+  ├── tts.js: "画了一个红色的圆"
+  ├── canvasSummary.js: 更新画布摘要
+  └── History.jsx: 添加历史记录
+```
 
-### draw_svg — 任意自由图形（新增）
-- 参数：SVG 路径标记 + 位置 + 缩放
-- Agent 直接生成 SVG `<path>` `<circle>` `<rect>` 等元素
-- 适用：任意物体（"画一只小狗"、"画一朵玫瑰花"、"画一辆汽车"）
-- 渲染：SVG字符串 → Blob URL → Image → Canvas drawImage
+## LLM 输出格式
 
-### draw_scene — 组合场景
-- 15 个可组合模板：house, tree, sun, mountain, cloud, flower, bench, road, star, heart, leaf, grass, river, fence, moon
-- Agent 分解场景 → 映射模板 → 确定位置/颜色 → 输出 elements 数组
-- 支持背景渐变（gradient_sky/gradient_autumn/gradient_sunset/gradient_night）
-- 适用：复杂场景（"秋天的街道"、"日落海边"）
+```json
+{
+  "status": "success" | "optimized" | "error",
+  "actions": [
+    {
+      "type": "draw_shape" | "draw_svg" | "canvas_control",
+      "params": { ... }
+    }
+  ],
+  "summary": "中文描述"
+}
+```
 
-### canvas_control — 画布管理
-- clear：清空画布
-- undo：撤销上一步
+### status 取值与前端行为
 
-## 指令能力清单
+| 值 | 含义 | 前端行为 |
+|----|------|---------|
+| `success` | 成功解析并生成完整指令 | 执行 actions，TTS 播报 summary |
+| `optimized` | 优化了模糊指令（如"小圆"→radius:40） | 执行 actions，TTS 播报"已优化："+summary |
+| `error` | 无法理解指令 | 不执行，TTS 播报"没理解，请重说" |
+
+### actions 支持的工具
+
+| 工具 | 说明 | 参数 |
+|------|------|------|
+| `draw_shape` | 几何图形 | shape, color, x, y, radius/width/height |
+| `draw_svg` | 自由图形（SVG） | svg 字符串, x, y, scale |
+| `canvas_control` | 画布管理 | action: "clear" / "undo" |
+
+## 指令能力
 
 | 类别 | 示例 | 处理方式 |
 |------|------|---------|
-| 基本几何 | "画一个红色的圆" | draw_shape |
-| 任意物体 | "画一只小狗" / "画玫瑰花" | **draw_svg**（Agent 生成 SVG） |
-| 复合几何 | "画红圆和蓝方块" | draw_shape × N |
-| 模糊物体 | "画一座房子" / "画一棵树" | draw_svg 或 draw_scene |
-| 场景意象 | "秋天的街道" / "日落海边" | draw_scene（分解→组合模板） |
+| 几何图形 | "画一个红色的圆" | draw_shape |
+| 自由物体 | "画一只小狗" / "画玫瑰花" | draw_svg |
+| 复合指令 | "画红圆和蓝方块" | actions 数组 |
 | 画布控制 | "清空" / "撤销" | canvas_control |
-| ASR 容错 | "发房子"（同音错字） | Agent 自动纠正 |
+| ASR 容错 | "发房子"（同音错字） | 系统提示词纠正 |
 
-## Agent 设计
+## 容错策略
 
-- **模式：** ReAct (Reasoning + Acting)
-- **工具：** draw_shape / draw_svg / draw_scene / canvas_control
-- **工具选择策略：**
-  1. 精确几何 → draw_shape
-  2. 物体/动物/物品 → draw_svg（先生成 SVG 再渲染）
-  3. 复杂场景 → draw_scene（分解为模板组合）
-  4. 画布管理 → canvas_control
-- **容错：** 轻度 ASR 错误自动纠正，重度返回 need_repeat
-- **循环上限：** 5 轮
-- **模型：** DeepSeek V4 Flash (deepseek-v4-flash)
-
-## SVG 生成指导（给 Agent 的系统提示）
-
-Agent 在生成 SVG 时使用标准 SVG 标签：
-- `<circle cx="50" cy="50" r="40" fill="red"/>`
-- `<rect x="10" y="10" width="80" height="60" fill="blue"/>`
-- `<path d="M10 80 Q 95 10 180 80" stroke="black" fill="transparent"/>`
-- `<ellipse cx="50" cy="50" rx="40" ry="20" fill="green"/>`
-- 颜色使用英文名或 hex (#FF0000)
-- 多个元素组合时注意相对位置和比例
+| 场景 | 处理方式 |
+|------|---------|
+| ASR 同音错字 | 系统提示词指明常见错误映射（发→画、园→圆） |
+| 模糊指令 | LLM 返回 status: "optimized"，前端告知用户优化内容 |
+| 无法理解 | LLM 返回 status: "error"，前端提示用户重说 |
+| 代理/网络错误 | 前端 catch 异常，TTS 提示"出错了，请重试" |
+| 语音静默 | 1.5s 超时自动提交，15s 无语音自动重启识别 |

@@ -9,7 +9,7 @@
       "tier": 1,
       "acceptance_criteria": [
         "项目可运行 npm run dev",
-        "目录结构完整（components/services/templates/utils）",
+        "目录结构完整（components/services/utils）",
         "src/ 下只有 App.jsx / App.css / config.js / main.jsx 四个文件"
       ],
       "verification_commands": ["cd D:/ai-voice-painter && npm run dev"],
@@ -65,82 +65,187 @@
     {
       "id": "step-4",
       "title": "场景模板系统 (draw_scene)",
-      "description": "实现 sceneRenderer + 5 个核心模板 (house/tree/sun/mountain/cloud)，Agent 新增 draw_scene 工具",
+      "description": "【已废弃】原计划实现场景模板系统，已由新架构方案取代",
       "tier": 2,
       "depends_on": ["step-3"],
-      "status": "on_hold",
-      "note": "模板系统方案待商议——当前 draw_svg 已能满足基本场景绘制需求，模板的边际收益有限。决定先聚焦纯语音体验。",
-      "acceptance_criteria": [
-        "5 个核心模板渲染正常（房子/树/太阳/山/云）",
-        "Agent 可组合多个模板到 elements 数组",
-        "背景色/渐变支持（gradient_sky/gradient_sunset 等）",
-        "z_index 排序正确（山在背景上，云在天空上）"
-      ],
-      "verification_commands": [
-        "输入'画一座房子' → Canvas 画出房子（墙壁+屋顶+门+窗）",
-        "输入'画一个场景：左边有房子，右边有树，天空有太阳' → 元素按描述位置排列"
-      ],
+      "status": "superseded",
+      "note": "新架构方案采用厚前端+薄代理+纯云LLM 架构，LLM 直接输出 JSON 指令，无需 draw_scene 模板系统。draw_svg 已可覆盖场景绘制需求。",
       "completed": false,
       "passes": false
     },
     {
       "id": "step-5",
       "title": "扩充模板 + 复合指令 + 画布控制 + ASR 容错",
-      "description": "扩充到 15 个模板，支持复合指令多步骤执行、clear/undo 画布控制、重度 ASR 错误容错",
+      "description": "【已废弃】原计划扩充模板系统，已由新架构方案取代",
       "tier": 2,
       "depends_on": ["step-4"],
-      "status": "on_hold",
-      "note": "模板系统整体暂缓，复合指令/ASR 容错/画布控制已部分实现在 pure-voice 分支中。",
-      "acceptance_criteria": [
-        "15 个模板全部可用（house/tree/sun/mountain/cloud/flower/bench/road/star/heart/leaf/grass/river/fence/moon）",
-        "'秋天的街道'/'日落海边'/'星空月夜' 场景正常",
-        "复合指令'画A和B' → 两步执行完成",
-        "清空/撤销功能正常",
-        "重度 ASR 错误 → 提示重录 (need_repeat)",
-        "Agent 循环不超过 5 轮"
-      ],
-      "verification_commands": [
-        "输入'画红色圆和蓝色矩形，红色圆在左边' → Agent 两次 draw_shape，Canvas 显示两个图形",
-        "输入'清空' → Canvas 清空"
-      ],
+      "status": "superseded",
+      "note": "复合指令通过 LLM 返回 actions 数组实现，ASR 容错通过系统提示词实现，无需额外步骤。",
       "completed": false,
       "passes": false
     },
     {
       "id": "step-6",
       "title": "设计文档 + 部署 + 演示",
-      "description": "docs/design_document.md、Vercel 部署、README、演示录制",
+      "description": "【已废弃】原计划最终验收步骤，已由新架构方案取代",
       "tier": 3,
       "depends_on": ["step-5"],
+      "status": "superseded",
+      "note": "设计文档和部署在新架构方案中重新规划。",
+      "completed": false,
+      "passes": false
+    },
+    {
+      "id": "step-7",
+      "title": "新增：薄代理基础设施",
+      "description": "创建 server/ 目录，新建 package.json + .env + proxy.js，Express 代理服务用于转发 LLM 请求并隐藏 API Key",
+      "tier": 2,
+      "depends_on": [],
       "status": "pending",
       "acceptance_criteria": [
-        "设计文档包含架构图、工具清单、模板列表、指令能力对比表",
-        "Vercel 部署公网可访问",
-        "README 完整",
-        "npm run build 构建成功"
+        "server/package.json 包含 express + cors + dotenv 依赖",
+        "server/.env 包含 DEEPSEEK_API_KEY 和 MODEL",
+        "server/proxy.js 有 /api/agent 和 /api/health 两个路由",
+        "node proxy.js 启动无报错，curl /api/health 返回 {\"status\":\"ok\"}",
+        "代理不存储任何业务状态，纯透传"
       ],
-      "verification_commands": ["cd D:/ai-voice-painter && npm run build"],
+      "verification_commands": [
+        "cd D:/ai-voice-painter/server && node proxy.js",
+        "curl http://localhost:8000/api/health"
+      ],
+      "completed": false,
+      "passes": false
+    },
+    {
+      "id": "step-8",
+      "title": "微调：移除前端 API Key + 配置代理地址",
+      "description": "从 .env 移除 VITE_OPENAI_API_KEY，在 config.js 中移除 apiKey 字段，加 proxyUrl 指向代理",
+      "tier": 2,
+      "depends_on": ["step-7"],
+      "status": "pending",
+      "acceptance_criteria": [
+        ".env 中不再有 VITE_OPENAI_API_KEY",
+        "config.js 不再暴露 apiKey",
+        "config.js 有 proxyUrl 字段指向 localhost:8000",
+        "build 产物中搜索不到 API Key 字符串"
+      ],
+      "verification_commands": [
+        "grep -r 'sk-8eff' src/ .env  || echo 'API Key 已从前端移除'"
+      ],
+      "completed": false,
+      "passes": false
+    },
+    {
+      "id": "step-9",
+      "title": "微调：重写 agent.js 为代理客户端",
+      "description": "将 src/services/agent.js 从 ReAct 循环（148行）重写为代理 API 客户端（~50行），系统提示词移至代理端",
+      "tier": 2,
+      "depends_on": ["step-8"],
+      "status": "pending",
+      "acceptance_criteria": [
+        "agent.js 不再包含系统提示词、工具定义、ReAct 循环",
+        "agent.js 通过 fetch 调代理的 /api/agent 接口",
+        "agent.js 返回 { status, actions[], summary } 格式",
+        "前端不再直接连接 DeepSeek API"
+      ],
+      "verification_commands": [
+        "浏览器 DevTools → Network → 请求指向 localhost:8000 而非 api.deepseek.com"
+      ],
+      "completed": false,
+      "passes": false
+    },
+    {
+      "id": "step-10",
+      "title": "新增：TTS 语音反馈模块",
+      "description": "新建 src/services/tts.js，封装 window.speechSynthesis API，导出 speak(text) 函数",
+      "tier": 2,
+      "depends_on": ["step-9"],
+      "status": "pending",
+      "acceptance_criteria": [
+        "tts.js 导出 speak(text) 函数",
+        "support zh-CN 中文语音",
+        "调用 speak() 时先 cancel() 打断当前播报",
+        "非浏览器环境/无 speechSynthesis 时静默降级"
+      ],
+      "verification_commands": [
+        "在浏览器控制台执行 speak('画了一个红色的圆') → 听到语音播报"
+      ],
+      "completed": false,
+      "passes": false
+    },
+    {
+      "id": "step-11",
+      "title": "新增：画布摘要模块",
+      "description": "新建 src/services/canvasSummary.js，从 layers 数组生成紧凑摘要供 LLM 做空间决策",
+      "tier": 2,
+      "depends_on": ["step-9"],
+      "status": "pending",
+      "acceptance_criteria": [
+        "canvasSummary.js 导出 generateCanvasSummary(layers) 函数",
+        "对每个 layer 提取 {type, shape, color, x, y, radius, width, height}",
+        "layers 为空时返回空数组 []",
+        "不包含 id 等无关字段"
+      ],
+      "verification_commands": [
+        "在浏览器控制台执行 generateCanvasSummary([...]) → 得到紧凑摘要"
+      ],
+      "completed": false,
+      "passes": false
+    },
+    {
+      "id": "step-12",
+      "title": "微调：集成 App.jsx（status 分支 + TTS + 画布摘要）",
+      "description": "App.jsx 的 handleCommand 加 status 分支判断（success/optimized/error），集成 tts.js 语音反馈和 canvasSummary.js",
+      "tier": 2,
+      "depends_on": ["step-10", "step-11"],
+      "status": "pending",
+      "acceptance_criteria": [
+        "handleCommand 调用 runAgent(text, summary) 传入画布摘要",
+        "response.status === 'success' → 执行 actions + TTS 播报 summary",
+        "response.status === 'optimized' → 执行 actions + TTS 播报'已优化：'+summary",
+        "response.status === 'error' → 不执行 + TTS 提示重说",
+        "网络/catch 异常 → TTS 提示'出错了，请重试'",
+        "历史记录显示 status 标签"
+      ],
+      "verification_commands": [
+        "说'画红色圆' → Canvas 渲染 + TTS 播报",
+        "说'给我画一个' → TTS 提示重说"
+      ],
+      "completed": false,
+      "passes": false
+    },
+    {
+      "id": "step-13",
+      "title": "验收测试 + 设计文档",
+      "description": "运行全部验收测试，提交 docs/design.md 设计文档",
+      "tier": 3,
+      "depends_on": ["step-12"],
+      "status": "pending",
+      "acceptance_criteria": [
+        "验收测试 6 项全部通过",
+        "docs/design.md 包含架构说明、指令能力清单、设计决策、未完成功能说明"
+      ],
+      "verification_commands": [
+        "说'画红色圆' → Canvas 出现红色圆形 + TTS",
+        "说'画红色圆和蓝色矩形，圆在左边' → 两个图形按描述排列",
+        "说'清空' → 画布清空 + TTS",
+        "说'画一只小狗' → SVG 小狗轮廓",
+        "说'发房子' → 画出房子（ASR 容错）",
+        "DevTools → Network → 看不到 API Key"
+      ],
       "completed": false,
       "passes": false,
       "e2e_checkpoint": true
     }
   ],
-  "total_steps": 6,
+  "total_steps": 13,
   "completed": 3,
-  "current_step": "pure-voice-optimization",
+  "current_step": "step-7",
   "milestones": {
     "tier1_complete": "step-2",
     "voice_input": "step-3",
-    "pure_voice_control": "feature-pure-voice-mode",
-    "ui_simplified": "feature-voice-only-drawing",
-    "github_pages_deployed": "feature-voice-only-drawing",
-    "tier2_on_hold": "step-4, step-5 (模板系统待商议)",
-    "all_complete": "step-6"
+    "thin_proxy": "step-7",
+    "full_stack_complete": "step-13"
   },
-  "branches": {
-    "feature-pure-voice-mode": "纯语音控制模式 — VoiceController 持续监听，关键词驱动，Permissions API 自动恢复",
-    "feature-voice-only-drawing": "纯语音精简版 — 移除所有按钮/输入框，零点击纯语音 + 绘图优化",
-    "step-4-scene-templates": "（暂缓）场景模板系统分支"
-  },
-  "e2e_interval": 3
+  "e2e_interval": 5
 }

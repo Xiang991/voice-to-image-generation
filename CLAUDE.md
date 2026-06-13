@@ -4,14 +4,19 @@
 
 纯语音控制的绘图工具。用户通过语音指令完成绘图创作。
 
-**核心链路：** 浏览器语音识别 → DeepSeek Agent (ReAct) 理解指令 → 调用绘图工具 → Canvas 显示结果
+**架构：** 厚前端 + 薄代理 + 纯云 LLM
+**核心链路：** 语音识别 → 厚前端解析 → 薄代理转发 → LLM 输出 JSON → 前端状态判断 → Canvas 渲染 + TTS 反馈
 
 ## 快速开始
 
 ```bash
-npm install
-npm run dev        # 开发服务器 → localhost:5173
-npm run build      # 生产构建
+# 终端 1：启动代理
+cd server && npm install && node proxy.js
+# → http://localhost:8000
+
+# 终端 2：启动前端
+npm run dev
+# → http://localhost:5173
 ```
 
 ## 技术栈
@@ -20,99 +25,65 @@ npm run build      # 生产构建
 |------|------|
 | 前端框架 | React 19 + Vite 8 |
 | 语音识别 | Web Speech API |
-| Agent LLM | DeepSeek V4 Flash (function calling) |
-| 绘图 | HTML5 Canvas 2D + SVG |
-| 后端 | 无（纯静态） |
-| 部署 | Vercel |
+| 画布渲染 | Fabric.js 7 |
+| LLM | DeepSeek V4 Flash (JSON 直出) |
+| 代理层 | Node Express（仅透传） |
+| TTS | Web Speech Synthesis API |
 
 ## 目录结构
 
 ```
-src/
-├── components/     # UI 组件（VoiceInput, Canvas, History 等）
-├── services/       # Agent 服务、工具调用
-├── templates/      # 场景模板（draw_scene）
-└── utils/          # 工具函数
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── VoiceController.jsx   语音输入 + 关键词检测 + 生命周期管理
+│   │   ├── Canvas.jsx            Fabric.js 画布渲染
+│   │   └── History.jsx           指令历史
+│   ├── services/
+│   │   ├── agent.js              代理客户端（调后端 API）
+│   │   ├── tts.js                Speech Synthesis 封装
+│   │   └── canvasSummary.js      画布状态摘要
+│   ├── utils/
+│   │   └── colors.js             颜色映射
+│   ├── App.jsx                   根组件 + status 分支判断
+│   ├── App.css                   样式
+│   ├── config.js                 配置
+│   └── main.jsx                  React 入口
+server/
+├── proxy.js          Express 代理（加 Key 转发）
+├── .env              环境变量（API Key）
+└── package.json      依赖
+docs/
+└── design.md         设计文档（交付物）
 .harness/
-├── design.md       # 设计方案
-└── progress.json   # 进度跟踪（唯一真实来源）
+├── design.md         设计方案
+└── progress.json     进度跟踪
 ```
 
-## 绘图工具系统
-
-- **draw_shape** — 精确几何图形（circle/rect/line）
-- **draw_svg** — 任意自由图形（Agent 生成 SVG）
-- **draw_scene** — 组合场景（15 个模板组合）
-- **canvas_control** — 画布管理（clear/undo）
-
----
-
-## Harness 自动化工作制度
-
-项目由 Harness 制度驱动：Hooks + Subagent/Workflow 自动化调研→设计→实施→验收的全生命周期。
-
-### 核心文件
-
-- `.harness/progress.json` — **唯一真实来源**，记录进度、当前步骤、验收标准
-- `.harness/design.md` — 设计方案
-
-### Hooks 机制
-
-- `SessionStart hook` — 每次 Session 启动自动运行，输出状态报告和行动指令
-- `SessionEnd hook` — 每次 Session 结束自动 Git commit + 写日志
-
-**SessionStart hook 的输出是当前阶段的最高行动指令。**
-
----
-
-### 阶段 2：增量执行（当前）
-
-每完成一步：
+## 架构说明：厚前端 + 薄代理 + 纯云 LLM
 
 ```
-✅ 实现功能（垂直切片：从 UI 到 Canvas 全栈闭环）
-✅ 验证系统可演示
-✅ 运行验收命令
-✅ 逐条检查验收标准
-✅ 更新 progress.json
-✅ Git commit
-✅ 读取下一步并执行
+用户 → 厚前端（浏览器）
+  ├── ASR 转文本（VoiceController）
+  ├── 调用代理层（agent.js）
+  ├── 解析 LLM 返回的 JSON
+  ├── 执行状态判断：success / optimized / error
+  ├── 绘图（Canvas.jsx）+ TTS 反馈（tts.js）
+  └── 存储画布状态（canvasSummary.js）
+
+厚前端 → 薄代理（Express）
+  └── 仅加 Key 透传，无分支判断
+
+薄代理 → 云 LLM（DeepSeek）
+  └── 理解自然语言 → 输出带 status 标签的结构化 JSON
 ```
-
-**单步约束：**
-- 一次只做一个步骤，不做后续步骤
-- 每步完成后系统必须可演示
-- 最小修改原则，不重构不扩展
-- 验收失败 → 定位修复 → 重新验收 → 通过后继续
-
----
-
-### 阶段 3：最终验收（所有步骤完成后）
-
-全量测试 → 检查设计一致性 → 用户确认 → 标记完成
-
-### /clear 后恢复
-
-SessionStart hook 自动输出当前状态。读取 progress.json，从当前步骤继续执行。
-
----
 
 ## 当前状态
 
 - **阶段：** 增量执行
-- **进度：** 3/6 步完成（Step 4/5 模板系统暂缓）
-- **当前工作：** 纯语音控制模式已完成，UI 精简为零按钮
-- **部署：** GitHub Pages → https://Xiang991.github.io/voice-to-image-generation/
-- **下一步：** 绘图优化（SVG 质量 / 复合指令 / 画布交互）
-
-### 分支概览
-
-| 分支 | 内容 |
-|------|------|
-| `main` | 稳定版本（Step 1-3 已完成）|
-| `feature-pure-voice-mode` | 纯语音控制模式（VoiceController）|
-| `feature-voice-only-drawing` | 当前 — 零按钮纯语音 + 绘图优化 |
-| `step-4-scene-templates` | （暂缓）场景模板系统 |
+- **进度：** 3/8 步完成
+- **当前工作：** 实现薄代理层 + 前端微调为新架构
+- **下一步：** 完成 5 个新增文件 + 4 个微调文件
 
 ## 工作规范
 
