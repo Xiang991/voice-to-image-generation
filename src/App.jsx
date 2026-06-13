@@ -6,7 +6,7 @@ import VoiceStatusBar from './components/VoiceStatusBar.jsx'
 import QuickBar from './components/QuickBar.jsx'
 import History from './components/History.jsx'
 import { runAgent } from './services/agent.js'
-import { resolveColor } from './utils/colors.js'
+import { generateCanvasSummary } from './services/canvasSummary.js'
 import { classifyIntent } from './services/intentClassifier.js'
 import { CONFIG } from './config.js'
 
@@ -75,46 +75,41 @@ export default function App() {
     setStatus('思考中...')
 
     try {
-      await runAgent(text, async (name, args) => {
-        switch (name) {
+      const summary = layers.length > 0 ? generateCanvasSummary(layers) : []
+      const result = await runAgent(text, summary)
+
+      const newLayers = [...layers]
+
+      for (const action of result.actions || []) {
+        const { type, params } = action
+        switch (type) {
           case 'draw_shape': {
-            args.color = resolveColor(args.color)
-            newLayers.push({ id: nextId++, type: 'shape', ...args })
+            newLayers.push({ id: nextId++, type: 'shape', ...params })
             break
           }
           case 'draw_svg': {
-            newLayers.push({
-              id: nextId++,
-              type: 'svg',
-              svg: args.svg,
-              x: args.x ?? 0,
-              y: args.y ?? 0,
-              scale: args.scale ?? 1,
-            })
+            newLayers.push({ id: nextId++, type: 'svg', ...params })
             break
           }
           case 'canvas_control': {
-            if (args.action === 'clear') newLayers.length = 0
-            else if (args.action === 'undo') newLayers.pop()
+            if (params.action === 'clear') newLayers.length = 0
+            else if (params.action === 'undo') newLayers.pop()
             break
           }
         }
-        setLayers([...newLayers])
-        return { success: true }
-      })
+      }
 
       setLayers([...newLayers])
       setHistory((prev) => [
-        { id: nextId++, text, status: 'success', timestamp: new Date() },
+        { id: nextId++, text, status: result.status === 'error' ? 'error' : 'success', timestamp: new Date() },
         ...prev,
       ])
-      setStatus('绘制完成')
+      setStatus(result.summary || '绘制完成')
     } catch (err) {
       console.error('Agent error:', err)
-      speak('出错了，请重试')
       setStatus('出错')
       setHistory((prev) => [
-        { id: nextId++, text, status: 'error', summary: err.message, timestamp: new Date() },
+        { id: nextId++, text, status: 'error', timestamp: new Date() },
         ...prev,
       ])
     } finally {
