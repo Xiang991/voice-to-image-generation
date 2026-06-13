@@ -26,9 +26,10 @@ npm run dev
 | 前端框架 | React 19 + Vite 8 |
 | 语音识别 | Web Speech API |
 | 画布渲染 | Fabric.js 7 |
-| LLM | DeepSeek V4 Flash (JSON 直出) |
-| 代理层 | Node Express（仅透传） |
+| LLM | DeepSeek V4 Flash（多 Provider 可切换：Qwen/Kimi） |
+| LLM 代理层 | Node Express + providers.js 注册表 |
 | TTS | Web Speech Synthesis API |
+| 基准测试 | server/benchmark/ — 16 用例多维评分 |
 
 ## 目录结构
 
@@ -48,8 +49,15 @@ voice-to-image-generation/
 │   ├── config.js                 配置
 │   └── main.jsx                  React 入口
 ├── server/                       # Express 代理后端
-│   ├── proxy.js                  加 Key 转发
-│   ├── .env                      环境变量（API Key）
+│   ├── proxy.js                  加 Key 转发（多 Provider 路由）
+│   ├── providers.js              模型注册表（DeepSeek/Qwen/Kimi）
+│   ├── .env                      环境变量（API Key，已 gitignore）
+│   ├── benchmark/                基准测试框架（16 用例 × 多维评分）
+│   │   ├── test-cases.js
+│   │   ├── scorer.js
+│   │   ├── report.js
+│   │   ├── runner.mjs
+│   │   └── results/              （生成结果，已 gitignore）
 │   └── package.json              依赖
 ├── docs/
 │   └── design.md                 设计文档（交付物）
@@ -84,9 +92,11 @@ voice-to-image-generation/
 
 ## 当前状态
 
-- **阶段：** ✅ 已完成
+- **阶段：** ✅ 已完成（基准测试阶段通过）
 - **进度：** 13/13 步完成
 - **里程碑：** Tier 1 骨架 ✓ | 语音输入 ✓ | 薄代理 ✓ | 全栈闭环 ✓
+- **模型选型：** DeepSeek V4 Flash（已验证 Qwen/Kimi 准确率等价但延迟劣势）
+- **基准测试：** 四模型 95.5% 同分，延迟差距 265ms vs 3.6s vs 14s，详见 `docs/benchmark-selection.md`
 - **说明：** 项目所有步骤已完成并通过验收，详见 `.harness/progress.json`
 
 ## 工作规范
