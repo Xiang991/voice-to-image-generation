@@ -13,6 +13,8 @@ export default function VoiceController({ onSubmit, disabled, onStateChange }) {
   const [permDenied, setPermDenied] = useState(false)
 
   const recRef = useRef(null)
+  const bootRecRef = useRef(null)
+  const scheduleRestartRef = useRef(null)
   const silenceRef = useRef(null)
   const finalRef = useRef('')
   const deadRef = useRef(false)

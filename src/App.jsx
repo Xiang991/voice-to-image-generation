@@ -74,8 +74,6 @@ export default function App() {
     setLoading(true)
     setStatus('思考中...')
 
-    const newLayers = [...layers]
-
     try {
       await runAgent(text, async (name, args) => {
         switch (name) {
@@ -113,11 +111,12 @@ export default function App() {
       setStatus('绘制完成')
     } catch (err) {
       console.error('Agent error:', err)
+      speak('出错了，请重试')
+      setStatus('出错')
       setHistory((prev) => [
-        { id: nextId++, text, status: 'error', timestamp: new Date() },
+        { id: nextId++, text, status: 'error', summary: err.message, timestamp: new Date() },
         ...prev,
       ])
-      setStatus('出错：' + (err.message || '未知错误'))
     } finally {
       setLoading(false)
     }
