@@ -21,6 +21,7 @@ export default function VoiceController({ onSubmit, disabled, onStateChange }) {
   const restartTimerRef = useRef(null)
   const hadErrorRef = useRef(false)
   const lastRestartRef = useRef(0)
+  const retryCountRef = useRef(0)
   const permWatcherRef = useRef(null)
   const bootRef = useRef(null)
   const restartRef = useRef(null)
@@ -147,6 +148,7 @@ export default function VoiceController({ onSubmit, disabled, onStateChange }) {
     recRef.current = rec
     try {
       rec.start()
+      retryCountRef.current = 0
       setMicReady(true)
       setError(null)
       setPermDenied(false)
@@ -158,9 +160,16 @@ export default function VoiceController({ onSubmit, disabled, onStateChange }) {
 
   const doRestart = useCallback(() => {
     if (deadRef.current || hadErrorRef.current) return
+    if (retryCountRef.current >= 5) {
+      setError('语音识别多次失败，请检查麦克风后重新点击开始')
+      setMode('idle')
+      setMicReady(false)
+      return
+    }
     const now = Date.now()
     if (now - lastRestartRef.current < 300) return
     lastRestartRef.current = now
+    retryCountRef.current++
     clearTimers()
     stopRec()
     restartTimerRef.current = setTimeout(() => bootRef.current?.(), 200)
@@ -195,6 +204,7 @@ export default function VoiceController({ onSubmit, disabled, onStateChange }) {
     setError(null)
     hadErrorRef.current = false
     lastRestartRef.current = 0
+    retryCountRef.current = 0
   }, [])
 
   // Single effect: boot when entering listening mode or resuming after processing

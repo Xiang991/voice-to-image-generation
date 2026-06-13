@@ -7,6 +7,14 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
+const LLM_TIMEOUT_MS = 30_000;
+const API_KEY = process.env.DEEPSEEK_API_KEY;
+
+if (!API_KEY) {
+  console.error('缺少 DEEPSEEK_API_KEY 环境变量，请在 server/.env 中配置');
+  process.exit(1);
+}
+
 const SYSTEM_PROMPT = `你是一个绘画助手。用户通过语音告诉你画什么。
 
 输出格式（严格 JSON）：
@@ -29,7 +37,6 @@ const SYSTEM_PROMPT = `你是一个绘画助手。用户通过语音告诉你画
 5. status: 成功=success, 优化了模糊指令=optimized, 无法理解=error
 6. 坐标在画布中央区域（400,300 附近）`;
 
-
 /**
  * 从 LLM 响应中提取 JSON（兼容 ```json 代码块包裹）
  */
@@ -40,6 +47,7 @@ function extractJSON(text) {
   if (fenceMatch) return fenceMatch[1].trim();
   return trimmed;
 }
+
 app.post('/api/agent', async (req, res) => {
   try {
     const { text, canvasSummary, provider: providerId, model: modelName } = req.body;
@@ -75,21 +83,41 @@ app.post('/api/agent', async (req, res) => {
       effectiveModel = process.env.MODEL || 'deepseek-v4-flash';
     }
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: effectiveModel,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userContent }
-        ],
-        ...(prov?.extraBody || {})
-      })
-    });
+    // ── 超时控制 ──
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+
+    let response;
+    try {
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: effectiveModel,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: userContent }
+          ],
+          ...(prov?.extraBody || {})
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchErr) {
+      clearTimeout(timer);
+      if (fetchErr.name === 'AbortError') {
+        return res.status(504).json({
+          status: 'error',
+          summary: 'LLM 响应超时，请重试',
+          _provider: providerId || 'deepseek',
+          _model: effectiveModel,
+        });
+      }
+      throw fetchErr;
+    }
+    clearTimeout(timer);
 
     if (!response.ok) {
       const errText = await response.text();
@@ -105,19 +133,32 @@ app.post('/api/agent', async (req, res) => {
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
-      return res.json({ status: 'error', actions: [], summary: '模型返回为空', _provider: providerId || 'deepseek', _model: effectiveModel });
+      return res.json({
+        status: 'error',
+        actions: [],
+        summary: '模型返回为空',
+        _provider: providerId || 'deepseek',
+        _model: effectiveModel,
+      });
     }
 
     let parsed;
     try {
       parsed = JSON.parse(extractJSON(content));
     } catch {
-      return res.json({ status: 'error', actions: [], summary: '模型返回格式错误', _provider: providerId || 'deepseek', _model: effectiveModel });
+      return res.json({
+        status: 'error',
+        actions: [],
+        summary: '模型返回格式错误',
+        _provider: providerId || 'deepseek',
+        _model: effectiveModel,
+      });
     }
 
     res.json({ ...parsed, _provider: providerId || 'deepseek', _model: effectiveModel });
   } catch (err) {
-    res.status(500).json({ status: 'error', summary: err.message });
+    console.error('Unexpected proxy error:', err.message || err);
+    res.status(500).json({ status: 'error', summary: '服务器内部错误，请稍后重试' });
   }
 });
 

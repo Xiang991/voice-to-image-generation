@@ -8,6 +8,7 @@ import History from './components/History.jsx'
 import { runAgent } from './services/agent.js'
 import { generateCanvasSummary } from './services/canvasSummary.js'
 import { classifyIntent } from './services/intentClassifier.js'
+import { speak } from './services/tts.js'
 import { CONFIG } from './config.js'
 
 let nextId = 1
@@ -28,10 +29,13 @@ export default function App() {
     if (action === 'undo') {
       setLayers((prev) => {
         if (prev.length === 0) {
-          setStatus('没有可撤销的操作')
+          const msg = '没有可撤销的操作'
+          setStatus(msg)
+          speak(msg)
           return prev
         }
         setStatus('已撤销')
+        speak('已撤销')
         return prev.slice(0, -1)
       })
       setHistory((prev) => [
@@ -41,6 +45,7 @@ export default function App() {
     } else if (action === 'clear') {
       setLayers([])
       setStatus('画布已清空')
+      speak('画布已清空')
       setHistory((prev) => [
         { id: nextId++, text: '清空', status: 'success', timestamp: new Date() },
         ...prev,
@@ -56,7 +61,9 @@ export default function App() {
         { id: nextId++, text, status: 'ignored', timestamp: new Date() },
         ...prev,
       ])
-      setStatus('请说绘图指令，例如"画红色圆"')
+      const msg = '请说绘图指令，例如画红色圆'
+      setStatus(msg)
+      speak(msg)
       return
     }
 
@@ -75,8 +82,8 @@ export default function App() {
     setStatus('思考中...')
 
     try {
-      const summary = layers.length > 0 ? generateCanvasSummary(layers) : []
-      const result = await runAgent(text, summary)
+      const canvasSummary = layers.length > 0 ? generateCanvasSummary(layers) : []
+      const result = await runAgent(text, canvasSummary)
 
       const newLayers = [...layers]
 
@@ -104,10 +111,14 @@ export default function App() {
         { id: nextId++, text, status: result.status === 'error' ? 'error' : 'success', timestamp: new Date() },
         ...prev,
       ])
-      setStatus(result.summary || '绘制完成')
+      const summary = result.summary || '绘制完成'
+      setStatus(summary)
+      speak(summary)
     } catch (err) {
       console.error('Agent error:', err)
-      setStatus('出错')
+      const msg = '抱歉，出了点问题，请再试一次'
+      setStatus(msg)
+      speak(msg)
       setHistory((prev) => [
         { id: nextId++, text, status: 'error', timestamp: new Date() },
         ...prev,
