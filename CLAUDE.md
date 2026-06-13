@@ -33,8 +33,8 @@ npm run dev
 ## 目录结构
 
 ```
-frontend/
-├── src/
+voice-to-image-generation/
+├── src/                          # React 前端源码
 │   ├── components/
 │   │   ├── VoiceController.jsx   语音输入 + 关键词检测 + 生命周期管理
 │   │   ├── Canvas.jsx            Fabric.js 画布渲染
@@ -43,21 +43,25 @@ frontend/
 │   │   ├── agent.js              代理客户端（调后端 API）
 │   │   ├── tts.js                Speech Synthesis 封装
 │   │   └── canvasSummary.js      画布状态摘要
-│   ├── utils/
-│   │   └── colors.js             颜色映射
 │   ├── App.jsx                   根组件 + status 分支判断
 │   ├── App.css                   样式
 │   ├── config.js                 配置
 │   └── main.jsx                  React 入口
-server/
-├── proxy.js          Express 代理（加 Key 转发）
-├── .env              环境变量（API Key）
-└── package.json      依赖
-docs/
-└── design.md         设计文档（交付物）
-.harness/
-├── design.md         设计方案
-└── progress.json     进度跟踪
+├── server/                       # Express 代理后端
+│   ├── proxy.js                  加 Key 转发
+│   ├── .env                      环境变量（API Key）
+│   └── package.json              依赖
+├── docs/
+│   └── design.md                 设计文档（交付物）
+├── .harness/
+│   ├── design.md                 设计方案
+│   └── progress.json             进度跟踪
+├── README.md                     项目说明（交付物）
+├── .nvmrc                        Node.js 版本锁定
+├── index.html                    Vite 入口
+├── vite.config.js                构建配置
+├── package.json                  前端依赖
+└── CLAUDE.md                     项目规范（本文件）
 ```
 
 ## 架构说明：厚前端 + 薄代理 + 纯云 LLM
@@ -80,10 +84,10 @@ docs/
 
 ## 当前状态
 
-- **阶段：** 增量执行
-- **进度：** 3/8 步完成
-- **当前工作：** 实现薄代理层 + 前端微调为新架构
-- **下一步：** 完成 5 个新增文件 + 4 个微调文件
+- **阶段：** ✅ 已完成
+- **进度：** 13/13 步完成
+- **里程碑：** Tier 1 骨架 ✓ | 语音输入 ✓ | 薄代理 ✓ | 全栈闭环 ✓
+- **说明：** 项目所有步骤已完成并通过验收，详见 `.harness/progress.json`
 
 ## 工作规范
 

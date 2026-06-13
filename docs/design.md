@@ -264,7 +264,7 @@ LLM 在 Plan 阶段自动纠正，无需前端额外处理。
 
 ### 8.1 环境要求
 
-- Node.js 18+
+- Node.js 20+
 - Chrome / Edge 浏览器（Web Speech API 支持）
 - 麦克风权限
 

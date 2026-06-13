@@ -1,5 +1,5 @@
 {
-  "name": "ai-voice-painter-proxy",
+  "name": "voice-to-image-generation-proxy",
   "type": "module",
   "scripts": {
     "start": "node proxy.js",
