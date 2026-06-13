@@ -100,6 +100,41 @@ async function canvasClear() {
   // Note: clear may fail due to model inconsistency, that's expected
 }
 
+async function providerRouting() {
+  // 显式指定 DeepSeek provider 应正常返回
+  const res = await fetch(`${BASE}/api/agent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text: '画红色圆',
+      canvasSummary: [],
+      provider: 'deepseek',
+      model: 'deepseek-v4-flash',
+    }),
+  });
+  const data = await res.json();
+  assert(res.status === 200, `Expected 200, got ${res.status}`);
+  assert(data._provider === 'deepseek', `Expected _provider=deepseek, got "${data._provider}"`);
+  assert(data._model === 'deepseek-v4-flash', `Expected _model=deepseek-v4-flash, got "${data._model}"`);
+}
+
+async function unknownProviderFallback() {
+  // 未知 provider 应回退到 DeepSeek 且有警告（不报错）
+  const res = await fetch(`${BASE}/api/agent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text: '画红色圆',
+      canvasSummary: [],
+      provider: 'nonexistent',
+    }),
+  });
+  const data = await res.json();
+  assert(res.status === 200, `Expected 200, got ${res.status}`);
+  assert(data.status === 'success' || data.status === 'optimized',
+    `Unknown provider fallback should still succeed, got "${data.status}"`);
+}
+
 // ---- Main ----
 
 console.log(`\n🔍 AI Voice Painter — Smoke Test`);
@@ -123,6 +158,8 @@ async function main() {
   await test('POST /api/agent — empty input → error', emptyInput);
   await test('POST /api/agent — compound instruction', compoundInstruction);
   await test('POST /api/agent — canvas clear', canvasClear);
+  await test('POST /api/agent — explicit provider routing', providerRouting);
+  await test('POST /api/agent — unknown provider fallback', unknownProviderFallback);
 
   const total = passed + failed;
   console.log(`\n📊 Results: ${passed}/${total} passed, ${failed} failed\n`);

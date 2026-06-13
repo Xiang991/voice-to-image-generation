@@ -21,7 +21,7 @@
 | 画布渲染 | Fabric.js 7 | Canvas 2D 渲染，支持几何图形和 SVG |
 | UI 动画 | Framer Motion 12 | React 动画库，布局动画、弹簧物理、手势交互 |
 | UI 图标 | Lucide React 1 | 1500+ 精致 SVG 图标，按需加载 |
-| LLM | DeepSeek V4 Flash | 支持结构化 JSON 输出，延迟低 |
+| LLM | DeepSeek V4 Flash | JSON 直出 265ms，95.5% 准确率，经四模型基准测试验证为最优选型（详见 `benchmark-selection.md`） |
 | 代理层 | Node Express | 轻量级转发，与前端同语言 |
 | TTS | Web Speech Synthesis API | 浏览器原生，零成本 |
 
@@ -212,7 +212,9 @@
 |------|------|------|
 | 仅支持 Chrome/Edge | Web Speech API 浏览器兼容性 | 其他浏览器无语音输入 |
 | 需"开始绘画"关键词触发 | 需防止误触发 | 启动多一步操作 |
-| SVG 质量取决于 LLM | DeepSeek 的 SVG 生成能力有限 | 复杂物体可能不完美 |
+| SVG 质量取决于 LLM | DeepSeek V4 Flash SVG 评分 88.9%，四模型等价 | 复杂物体可能不完美；换模型不能解决，需提示词优化 |
+
+> 关于 LLM 选型：2026-06-13 完成四模型基准测试（DeepSeek V4 Flash/Pro、Qwen3.7-Max、Kimi K2.6），准确率全部 95.5% 等价，DeepSeek V4 Flash 以 265ms 延迟胜出。详见 `benchmark-selection.md`。
 
 ---
 

@@ -3,7 +3,10 @@
   "type": "module",
   "scripts": {
     "start": "node proxy.js",
-    "test": "node smoke-test.mjs"
+    "test": "node smoke-test.mjs",
+    "benchmark": "node benchmark/runner.mjs",
+    "benchmark:verbose": "node benchmark/runner.mjs --verbose",
+    "benchmark:quick": "node benchmark/runner.mjs --limit 5"
   },
   "dependencies": {
     "express": "^4.18.0",

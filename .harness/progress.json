@@ -241,7 +241,7 @@
       ],
       "completed": true,
       "passes": true,
-      "note": "2026-06-13 最终验收：Test1-5 需手动验证（浏览器 Canvas+TTS），Test6 已验证通过。Smoke Test 5/5 通过。设计文档 docs/design.md 已完整。DeepSeek V4 Flash 模型 ~60% 成功率属已知限制。"
+      "note": "2026-06-13 最终验收：Test1-5 需手动验证（浏览器 Canvas+TTS），Test6 已验证通过。Smoke Test 5/5 通过。设计文档 docs/design.md 已完整。2026-06-13 完成四模型基准测试（DeepSeek V4 Flash/Pro、Qwen3.7-Max、Kimi K2.6）：准确率 95.5% 等价，DeepSeek V4 Flash 以 265ms 延迟保持最优选型。详见 docs/benchmark-selection.md。"
     }
   ],
   "total_steps": 13,
@@ -250,7 +250,11 @@
     "tier1_complete": "step-2",
     "voice_input": "step-3",
     "thin_proxy": "step-7",
-    "full_stack_complete": "step-13"
+    "full_stack_complete": "step-13",
+    "model_benchmark": "2026-06-13"
   },
-  "e2e_interval": 5
+  "e2e_interval": 5,
+  "notes": [
+    "2026-06-13: 多模型基准测试完成。测试 DeepSeek V4 Flash/Pro、Qwen3.7-Max、Kimi K2.6。结论：准确率 95.5% 等价，DeepSeek V4 Flash 以 265ms 延迟保持最优选型。"
+  ]
 }

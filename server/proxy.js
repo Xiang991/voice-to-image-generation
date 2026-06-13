@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
+import { getProvider } from './providers.js';
 
 const app = express();
 app.use(cors());
@@ -36,51 +37,83 @@ const SYSTEM_PROMPT = `你是一个绘画助手。用户通过语音告诉你画
 5. status: 成功=success, 优化了模糊指令=optimized, 无法理解=error
 6. 坐标在画布中央区域（400,300 附近）`;
 
-function extractJson(text) {
-  const trimmed = text.trim()
-  // strip ```json / ``` fences
-  const fence = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n\s*```$/)
-  if (fence) return fence[1].trim()
-  // strip leading/trailing ``` when the fence is on the same line
-  if (trimmed.startsWith('```json') || trimmed.startsWith('```')) {
-    return trimmed.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim()
-  }
-  return trimmed
+/**
+ * 从 LLM 响应中提取 JSON（兼容 ```json 代码块包裹）
+ */
+function extractJSON(text) {
+  if (!text || typeof text !== 'string') return text;
+  const trimmed = text.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
+  if (fenceMatch) return fenceMatch[1].trim();
+  return trimmed;
 }
 
 app.post('/api/agent', async (req, res) => {
   try {
-    const { text, canvasSummary } = req.body;
+    const { text, canvasSummary, provider: providerId, model: modelName } = req.body;
 
     let userContent = text;
     if (canvasSummary && canvasSummary.length > 0) {
       userContent = `当前画布状态：${JSON.stringify(canvasSummary)}\n\n用户指令：${text}`;
     }
 
+    // ── 多 Provider 路由 ──
+    let apiUrl, apiKey, effectiveModel;
+    const prov = getProvider(providerId);
+
+    if (prov) {
+      apiKey = process.env[prov.apiKeyEnv];
+      if (!apiKey) {
+        return res.status(400).json({
+          status: 'error',
+          summary: `未配置 ${prov.name} API Key，请在 server/.env 中设置 ${prov.apiKeyEnv}`,
+          _provider: providerId,
+          _model: modelName || prov.defaultModel,
+        });
+      }
+      apiUrl = prov.baseUrl;
+      effectiveModel = modelName || prov.defaultModel;
+    } else {
+      // 向后兼容：不传 provider 时走旧逻辑
+      if (providerId) {
+        console.warn(`[proxy] 未知 provider "${providerId}"，回退到 DeepSeek`);
+      }
+      apiUrl = 'https://api.deepseek.com/v1/chat/completions';
+      apiKey = process.env.DEEPSEEK_API_KEY;
+      effectiveModel = process.env.MODEL || 'deepseek-v4-flash';
+    }
+
+    // ── 超时控制 ──
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
     let response;
     try {
-      response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`
+          'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: process.env.MODEL || 'deepseek-v4-flash',
+          model: effectiveModel,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: userContent }
-          ]
+          ],
+          ...(prov?.extraBody || {})
         }),
         signal: controller.signal,
       });
     } catch (fetchErr) {
       clearTimeout(timer);
       if (fetchErr.name === 'AbortError') {
-        return res.status(504).json({ status: 'error', summary: 'LLM 响应超时，请重试' });
+        return res.status(504).json({
+          status: 'error',
+          summary: 'LLM 响应超时，请重试',
+          _provider: providerId || 'deepseek',
+          _model: effectiveModel,
+        });
       }
       throw fetchErr;
     }
@@ -89,23 +122,40 @@ app.post('/api/agent', async (req, res) => {
     if (!response.ok) {
       const errText = await response.text();
       console.error(`LLM API error ${response.status}: ${errText}`);
-      return res.status(response.status).json({ status: 'error', summary: `API ${response.status}` });
+      return res.status(response.status).json({
+        status: 'error',
+        summary: `API ${response.status}`,
+        _provider: providerId || 'deepseek',
+        _model: effectiveModel,
+      });
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
-      return res.json({ status: 'error', actions: [], summary: '模型返回为空' });
+      return res.json({
+        status: 'error',
+        actions: [],
+        summary: '模型返回为空',
+        _provider: providerId || 'deepseek',
+        _model: effectiveModel,
+      });
     }
 
     let parsed;
     try {
-      parsed = JSON.parse(extractJson(content));
+      parsed = JSON.parse(extractJSON(content));
     } catch {
-      return res.json({ status: 'error', actions: [], summary: '模型返回格式错误' });
+      return res.json({
+        status: 'error',
+        actions: [],
+        summary: '模型返回格式错误',
+        _provider: providerId || 'deepseek',
+        _model: effectiveModel,
+      });
     }
 
-    res.json(parsed);
+    res.json({ ...parsed, _provider: providerId || 'deepseek', _model: effectiveModel });
   } catch (err) {
     console.error('Unexpected proxy error:', err.message || err);
     res.status(500).json({ status: 'error', summary: '服务器内部错误，请稍后重试' });
