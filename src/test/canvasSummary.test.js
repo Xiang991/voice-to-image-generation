@@ -17,7 +17,7 @@ describe('generateCanvasSummary', () => {
         { id: 1, type: 'shape', shape: 'circle', color: 'red', x: 400, y: 300, radius: 50 },
       ]
       expect(generateCanvasSummary(layers)).toEqual([
-        { type: 'shape', shape: 'circle', color: 'red', x: 400, y: 300, radius: 50 },
+        { type: 'shape', shape: 'circle', color: 'red', x: 400, y: 300, radius: 50, zone: '中中' },
       ])
     })
 
@@ -26,7 +26,7 @@ describe('generateCanvasSummary', () => {
         { id: 2, type: 'shape', shape: 'rect', color: 'blue', x: 200, y: 150, width: 100, height: 80 },
       ]
       expect(generateCanvasSummary(layers)).toEqual([
-        { type: 'shape', shape: 'rect', color: 'blue', x: 200, y: 150, width: 100, height: 80 },
+        { type: 'shape', shape: 'rect', color: 'blue', x: 200, y: 150, width: 100, height: 80, zone: '左上' },
       ])
     })
 
@@ -35,7 +35,7 @@ describe('generateCanvasSummary', () => {
         { id: 3, type: 'shape', shape: 'line', color: 'green', x: 0, y: 0, x2: 400, y2: 300 },
       ]
       expect(generateCanvasSummary(layers)).toEqual([
-        { type: 'shape', shape: 'line', color: 'green', x: 0, y: 0 },
+        { type: 'shape', shape: 'line', color: 'green', x: 0, y: 0, zone: '左上' },
       ])
     })
 
@@ -54,7 +54,7 @@ describe('generateCanvasSummary', () => {
         { id: 5, type: 'svg', svg: '<svg>...</svg>', x: 100, y: 200, scale: 2 },
       ]
       expect(generateCanvasSummary(layers)).toEqual([
-        { type: 'svg', x: 100, y: 200, scale: 2 },
+        { type: 'svg', x: 100, y: 200, scale: 2, zone: '左中' },
       ])
     })
 
@@ -62,10 +62,8 @@ describe('generateCanvasSummary', () => {
       const layers = [
         { id: 6, type: 'svg', svg: '<svg>...</svg>' },
       ]
-      // x/y/scale 在对象的原样输出中会是 undefined，但 if l.x 为 falsy 时不会添加该字段
-      // 实际输出取决于 l.x l.y l.scale 的存在性
       const result = generateCanvasSummary(layers)
-      expect(result[0]).toEqual({ type: 'svg' })
+      expect(result[0]).toEqual({ type: 'svg', zone: '中中' })
     })
   })
 
@@ -77,9 +75,9 @@ describe('generateCanvasSummary', () => {
         { id: 3, type: 'shape', shape: 'rect', color: 'blue', x: 100, y: 100, width: 200, height: 150 },
       ]
       expect(generateCanvasSummary(layers)).toEqual([
-        { type: 'shape', shape: 'circle', color: 'red', x: 400, y: 300, radius: 50 },
-        { type: 'svg', x: 50, y: 60, scale: 1 },
-        { type: 'shape', shape: 'rect', color: 'blue', x: 100, y: 100, width: 200, height: 150 },
+        { type: 'shape', shape: 'circle', color: 'red', x: 400, y: 300, radius: 50, zone: '中中' },
+        { type: 'svg', x: 50, y: 60, scale: 1, zone: '左上' },
+        { type: 'shape', shape: 'rect', color: 'blue', x: 100, y: 100, width: 200, height: 150, zone: '左上' },
       ])
     })
   })
@@ -97,7 +95,7 @@ describe('generateCanvasSummary', () => {
       }))
       const result = generateCanvasSummary(layers)
       expect(result).toHaveLength(25)
-      expect(result[0]).toEqual({ type: 'shape', shape: 'circle', color: 'red', x: 0, y: 0, radius: 5 })
+      expect(result[0]).toEqual({ type: 'shape', shape: 'circle', color: 'red', x: 0, y: 0, radius: 5, zone: '左上' })
       expect(result[24].x).toBe(240)
     })
   })
