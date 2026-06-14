@@ -507,6 +507,53 @@ body::before {
   .app-header h1 { font-size: 18px; }
 }
 
+/* ===== Error Boundary ===== */
+.error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 800px;
+  height: 600px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-canvas);
+}
+
+.error-boundary-box {
+  text-align: center;
+  padding: 40px;
+}
+
+.error-boundary-box h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-error);
+  margin-bottom: 8px;
+}
+
+.error-boundary-detail {
+  font-size: 13px;
+  color: var(--color-secondary);
+  margin-bottom: 20px;
+}
+
+.error-boundary-btn {
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 550;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.error-boundary-btn:hover {
+  background: var(--color-accent-deep);
+  transform: translateY(-1px);
+}
+
 /* ===== Scrollbar ===== */
 .side-panel::-webkit-scrollbar,
 .history-list::-webkit-scrollbar {

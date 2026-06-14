@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Canvas from './components/Canvas.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 import VoiceController from './components/VoiceController.jsx'
 import VoiceStatusBar from './components/VoiceStatusBar.jsx'
 import QuickBar from './components/QuickBar.jsx'
@@ -379,6 +380,7 @@ export default function App() {
 
       <main className="app-main">
         <div className="canvas-area">
+          <ErrorBoundary>
           <Canvas ref={canvasRef} width={CONFIG.canvasWidth} height={CONFIG.canvasHeight}
             onLayersChange={handleLayersChange} onSelectChange={setSelectedId} />
           <QuickBar
@@ -399,6 +401,7 @@ export default function App() {
           />
           <input ref={fileInputRef} type="file" accept=".json"
             style={{ display: 'none' }} onChange={handleImportFile} />
+          </ErrorBoundary>
         </div>
 
         <aside className="side-panel">

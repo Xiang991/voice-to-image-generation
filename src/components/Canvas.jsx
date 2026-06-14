@@ -245,7 +245,30 @@ const Canvas = forwardRef(function Canvas({ width = 800, height = 600, onLayersC
     }
   }, [width, height])
 
-  /* ---- SVG with Image cache ---- */
+  /* ---- SVG placeholder (shown while loading) ---- */
+
+function drawSvgPlaceholder(ctx, layer) {
+  const s = layer.scale ?? 1
+  const w = (layer._imgW || 200) * s
+  const h = (layer._imgH || 200) * s
+
+  ctx.save()
+  ctx.setLineDash([4, 4])
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)'
+  ctx.lineWidth = 1
+  ctx.strokeRect(layer.x, layer.y, w, h)
+
+  // Loading indicator
+  ctx.setLineDash([])
+  ctx.fillStyle = 'rgba(0,0,0,0.20)'
+  ctx.font = '11px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('⌛', layer.x + w / 2, layer.y + h / 2)
+  ctx.restore()
+}
+
+/* ---- SVG with Image cache ---- */
 
   function drawSvgCached(ctx, layer, gen) {
     const key = layer.svg
@@ -259,9 +282,15 @@ const Canvas = forwardRef(function Canvas({ width = 800, height = 600, onLayersC
       return
     }
 
-    if (cached) return // still loading, will draw on onload
+    if (cached) {
+      // Still loading — draw placeholder
+      drawSvgPlaceholder(ctx, layer)
+      return
+    }
 
-    // First load
+    // First load — draw placeholder immediately
+    drawSvgPlaceholder(ctx, layer)
+
     const img = new Image()
     svgCacheRef.current.set(key, img)
 
