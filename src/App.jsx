@@ -147,6 +147,67 @@ export default function App() {
     }
   }, [takeSnapshot])
 
+  /* ---- Export / Import ---- */
+
+  const fileInputRef = useRef(null)
+
+  const exportPng = useCallback(() => {
+    const dataUrl = canvasRef.current?.toDataURL('image/png')
+    if (!dataUrl) return
+    const a = document.createElement('a')
+    a.download = `voice-painting-${Date.now()}.png`
+    a.href = dataUrl
+    a.click()
+    speak('已保存图片')
+    setStatus('已保存图片')
+  }, [])
+
+  const exportProject = useCallback(() => {
+    const json = JSON.stringify({ version: 1, layers: layersRef.current }, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.download = `voice-painting-${Date.now()}.json`
+    a.href = url
+    a.click()
+    URL.revokeObjectURL(url)
+    speak('已保存项目')
+    setStatus('已保存项目')
+  }, [])
+
+  const importProject = useCallback(() => {
+    fileInputRef.current?.click()
+  }, [])
+
+  const handleImportFile = useCallback((e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result)
+        if (!data?.layers || !Array.isArray(data.layers)) {
+          speak('文件格式不正确')
+          setStatus('导入失败：格式不正确')
+          return
+        }
+        takeSnapshot()
+        for (const l of data.layers) {
+          if (l.id >= nextId) nextId = l.id + 1
+        }
+        setLayers(data.layers)
+        speak('已导入项目')
+        setStatus('已导入项目')
+      } catch {
+        speak('文件格式不正确')
+        setStatus('导入失败：无法解析文件')
+      }
+    }
+    reader.readAsText(file)
+    // Reset so the same file can be re-imported
+    e.target.value = ''
+  }, [takeSnapshot])
+
   /* ---- LLM command handler ---- */
 
   const handleCommand = useCallback(async (text) => {
@@ -290,12 +351,18 @@ export default function App() {
             onRedo={() => executeLocal('redo')}
             onClear={() => executeLocal('clear')}
             onDelete={() => executeLocal('deleteSelected')}
+            onExportPng={exportPng}
+            onExportProject={exportProject}
+            onImportProject={importProject}
             disabled={loading}
             visible={showBar}
             hasSelection={selectedId !== null}
             canUndo={undoCount > 0}
             canRedo={redoCount > 0}
+            hasLayers={layers.length > 0}
           />
+          <input ref={fileInputRef} type="file" accept=".json"
+            style={{ display: 'none' }} onChange={handleImportFile} />
         </div>
 
         <aside className="side-panel">

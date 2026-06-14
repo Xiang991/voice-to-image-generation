@@ -301,6 +301,9 @@ const Canvas = forwardRef(function Canvas({ width = 800, height = 600, onLayersC
     getSelectedId() {
       return selectedIdRef.current
     },
+    toDataURL(type, quality) {
+      return canvasElRef.current?.toDataURL(type, quality) || null
+    },
   }))
 
   return (

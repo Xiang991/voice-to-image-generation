@@ -1,7 +1,11 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Undo2, Redo2, Trash2, XSquare } from 'lucide-react'
+import { Undo2, Redo2, Trash2, XSquare, Download, Upload, FileImage } from 'lucide-react'
 
-export default function QuickBar({ onUndo, onRedo, onClear, onDelete, disabled, visible, hasSelection, canUndo, canRedo }) {
+export default function QuickBar({
+  onUndo, onRedo, onClear, onDelete,
+  onExportPng, onExportProject, onImportProject,
+  disabled, visible, hasSelection, canUndo, canRedo, hasLayers,
+}) {
   return (
     <AnimatePresence>
       {visible && (
@@ -47,6 +51,42 @@ export default function QuickBar({ onUndo, onRedo, onClear, onDelete, disabled, 
           >
             <XSquare size={15} strokeWidth={2} />
             <span className="qb-label">删除</span>
+          </motion.button>
+          <motion.button
+            className="qb-btn"
+            onClick={onExportPng}
+            disabled={disabled || !hasLayers}
+            type="button"
+            title="导出为 PNG 图片"
+            whileHover={hasLayers ? { scale: 1.04, y: -1 } : {}}
+            whileTap={hasLayers ? { scale: 0.96 } : {}}
+          >
+            <FileImage size={15} strokeWidth={2} />
+            <span className="qb-label">图片</span>
+          </motion.button>
+          <motion.button
+            className="qb-btn"
+            onClick={onExportProject}
+            disabled={disabled || !hasLayers}
+            type="button"
+            title="导出项目文件 (.json)"
+            whileHover={hasLayers ? { scale: 1.04, y: -1 } : {}}
+            whileTap={hasLayers ? { scale: 0.96 } : {}}
+          >
+            <Download size={15} strokeWidth={2} />
+            <span className="qb-label">导出</span>
+          </motion.button>
+          <motion.button
+            className="qb-btn"
+            onClick={onImportProject}
+            disabled={disabled}
+            type="button"
+            title="导入项目文件 (.json)"
+            whileHover={{ scale: 1.04, y: -1 }}
+            whileTap={{ scale: 0.96 }}
+          >
+            <Upload size={15} strokeWidth={2} />
+            <span className="qb-label">导入</span>
           </motion.button>
           <motion.button
             className="qb-btn qb-danger"
