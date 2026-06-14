@@ -179,6 +179,10 @@ export default function App() {
     fileInputRef.current?.click()
   }, [])
 
+  const toggleGrid = useCallback(() => {
+    canvasRef.current?.toggleGrid()
+  }, [])
+
   const handleImportFile = useCallback((e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -229,6 +233,14 @@ export default function App() {
         executeLocal('undo')
       } else if (/重做|还原/.test(text)) {
         executeLocal('redo')
+      } else if (/显示网格|打开网格/.test(text)) {
+        if (!canvasRef.current?.isGridVisible?.()) toggleGrid()
+        speak('已显示网格')
+        setStatus('已显示网格')
+      } else if (/隐藏网格|关闭网格/.test(text)) {
+        if (canvasRef.current?.isGridVisible?.()) toggleGrid()
+        speak('已隐藏网格')
+        setStatus('已隐藏网格')
       } else if (/结束(绘画|绘图|画图|画画)/.test(text)) {
         return
       } else {
@@ -354,6 +366,7 @@ export default function App() {
             onExportPng={exportPng}
             onExportProject={exportProject}
             onImportProject={importProject}
+            onToggleGrid={toggleGrid}
             disabled={loading}
             visible={showBar}
             hasSelection={selectedId !== null}

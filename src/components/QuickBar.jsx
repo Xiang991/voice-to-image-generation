@@ -4,7 +4,8 @@ import { Undo2, Redo2, Trash2, XSquare, Download, Upload, FileImage } from 'luci
 export default function QuickBar({
   onUndo, onRedo, onClear, onDelete,
   onExportPng, onExportProject, onImportProject,
-  disabled, visible, hasSelection, canUndo, canRedo, hasLayers,
+  onToggleGrid,
+  disabled, visible, hasSelection, canUndo, canRedo, hasLayers, gridVisible,
 }) {
   return (
     <AnimatePresence>
@@ -87,6 +88,18 @@ export default function QuickBar({
           >
             <Upload size={15} strokeWidth={2} />
             <span className="qb-label">导入</span>
+          </motion.button>
+          <motion.button
+            className="qb-btn"
+            onClick={onToggleGrid}
+            disabled={disabled}
+            type="button"
+            title={gridVisible ? '隐藏网格' : '显示网格'}
+            whileHover={{ scale: 1.04, y: -1 }}
+            whileTap={{ scale: 0.96 }}
+          >
+            <span style={{ fontSize: 13, fontWeight: 600 }}>#</span>
+            <span className="qb-label">网格</span>
           </motion.button>
           <motion.button
             className="qb-btn qb-danger"

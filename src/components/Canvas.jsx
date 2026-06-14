@@ -80,6 +80,92 @@ function hitTest(x, y, layers) {
   return null
 }
 
+/* ---- Grid / Ruler ---- */
+
+function drawGrid(ctx, width, height) {
+  ctx.save()
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)'
+  ctx.lineWidth = 0.5
+  ctx.setLineDash([])
+  ctx.beginPath()
+
+  // Small grid every 50px
+  for (let x = 0; x <= width; x += 50) {
+    const bold = x % 200 === 0
+    ctx.strokeStyle = bold ? 'rgba(0,0,0,0.10)' : 'rgba(0,0,0,0.04)'
+    ctx.lineWidth = bold ? 1 : 0.5
+    ctx.beginPath()
+    ctx.moveTo(x, 0)
+    ctx.lineTo(x, height)
+    ctx.stroke()
+  }
+  for (let y = 0; y <= height; y += 50) {
+    const bold = y % 200 === 0
+    ctx.strokeStyle = bold ? 'rgba(0,0,0,0.10)' : 'rgba(0,0,0,0.04)'
+    ctx.lineWidth = bold ? 1 : 0.5
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(width, y)
+    ctx.stroke()
+  }
+
+  // Ruler labels every 100px
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'
+  ctx.font = '10px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+  for (let x = 0; x <= width; x += 100) {
+    ctx.fillText(String(x), x, 2)
+  }
+  ctx.textAlign = 'right'
+  ctx.textBaseline = 'middle'
+  for (let y = 0; y <= height; y += 100) {
+    ctx.fillText(String(y), 8, y)
+  }
+
+  ctx.restore()
+}
+
+function drawHud(ctx, layer) {
+  ctx.save()
+  ctx.fillStyle = 'rgba(30,30,30,0.85)'
+  ctx.font = '11px monospace'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'bottom'
+
+  let lines = [`x:${layer.x}  y:${layer.y}`]
+  if (layer.type === 'shape') {
+    if (layer.shape === 'circle') lines.push(`r:${layer.radius || 50}`)
+    else if (layer.shape === 'rect') lines.push(`w:${layer.width || 100}  h:${layer.height || 80}`)
+    else if (layer.shape === 'line') {
+      const x2 = layer.x2 ?? layer.x + 100
+      const y2 = layer.y2 ?? layer.y
+      lines.push(`x2:${x2}  y2:${y2}`)
+    }
+  }
+
+  const b = getLayerBounds(layer)
+  const pad = 6
+  const boxX = b.minX - pad
+  const boxY = b.minY - pad
+  const boxH = b.maxY - b.minY + pad * 2
+
+  // Draw HUD above the selection box
+  const hudY = boxY - 6
+  const lineH = 14
+  const totalH = lines.length * lineH + 4
+  const hudX = boxX
+
+  ctx.fillRect(hudX, hudY - totalH, 140, totalH)
+  ctx.fillStyle = '#fff'
+  ctx.textBaseline = 'bottom'
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], hudX + 6, hudY - 4 - (lines.length - 1 - i) * lineH)
+  }
+
+  ctx.restore()
+}
+
 /* ---- Selection visuals ---- */
 
 function drawSelectionBox(ctx, layer) {
@@ -118,8 +204,10 @@ const Canvas = forwardRef(function Canvas({ width = 800, height = 600, onLayersC
   const selectedIdRef = useRef(null)
   const dragRef = useRef(null)
   const svgCacheRef = useRef(new Map())
+  const showGridRef = useRef(false)
 
   const [cursor, setCursor] = useState('default')
+  const [gridVisible, setGridVisible] = useState(false)
 
   /* ===== Main render ===== */
 
@@ -136,6 +224,8 @@ const Canvas = forwardRef(function Canvas({ width = 800, height = 600, onLayersC
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, width, height)
 
+    if (showGridRef.current) drawGrid(ctx, width, height)
+
     const layers = layersRef.current
 
     for (const layer of layers) {
@@ -148,7 +238,10 @@ const Canvas = forwardRef(function Canvas({ width = 800, height = 600, onLayersC
     const selId = selectedIdRef.current
     if (selId != null) {
       const selLayer = layers.find(l => l.id === selId)
-      if (selLayer) drawSelectionBox(ctx, selLayer)
+      if (selLayer) {
+        drawSelectionBox(ctx, selLayer)
+        drawHud(ctx, selLayer)
+      }
     }
   }, [width, height])
 
@@ -303,6 +396,14 @@ const Canvas = forwardRef(function Canvas({ width = 800, height = 600, onLayersC
     },
     toDataURL(type, quality) {
       return canvasElRef.current?.toDataURL(type, quality) || null
+    },
+    toggleGrid() {
+      showGridRef.current = !showGridRef.current
+      setGridVisible(showGridRef.current)
+      fullRender()
+    },
+    isGridVisible() {
+      return showGridRef.current
     },
   }))
 
