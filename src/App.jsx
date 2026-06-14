@@ -152,10 +152,13 @@ export default function App() {
     takeSnapshot()
 
     try {
-      const canvasSummary = layers.length > 0 ? generateCanvasSummary(layers) : []
+      const canvasSummary = layersRef.current.length > 0 ? generateCanvasSummary(layersRef.current) : []
       const result = await runAgent(text, canvasSummary)
 
-      const newLayers = [...layers]
+      // Use layersRef.current instead of closure-captured `layers` to
+      // avoid race conditions when two commands fire in quick succession.
+      const currentLayers = layersRef.current
+      const newLayers = [...currentLayers]
 
       for (const action of result.actions || []) {
         const { type, params } = action
@@ -196,7 +199,7 @@ export default function App() {
     } finally {
       setLoading(false)
     }
-  }, [layers, executeLocal, takeSnapshot])
+  }, [executeLocal, takeSnapshot])
 
   const drawingActive = voiceMode === 'listening'
 
