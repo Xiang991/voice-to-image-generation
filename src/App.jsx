@@ -27,19 +27,25 @@ export default function App() {
   const [gridVisible, setGridVisible] = useState(false)
   const [messages, setMessages] = useState([])
   const loadingStartRef = useRef(null)
+  const responseTimesRef = useRef([])
+  const MAX_SAMPLES = 8
 
-  /* ---- Elapsed time indicator during loading ---- */
+  /* ---- Estimated completion time ---- */
   useEffect(() => {
     if (loading) {
       loadingStartRef.current = Date.now()
-      setStatus('思考中')
-      const timer = setInterval(() => {
-        const sec = Math.floor((Date.now() - loadingStartRef.current) / 1000)
-        setStatus(sec < 60 ? `⏱ ${sec}s` : `⏱ ${Math.floor(sec / 60)}m${sec % 60}s`)
-      }, 1000)
-      return () => clearInterval(timer)
+      const times = responseTimesRef.current
+      const avg = times.length > 0 ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 8
+      setStatus(`预计 ${avg}s`)
     }
   }, [loading])
+
+  function recordResponseTime(ms) {
+    const sec = Math.round(ms / 1000)
+    const times = responseTimesRef.current
+    times.push(sec)
+    if (times.length > MAX_SAMPLES) times.shift()
+  }
 
   /* ---- Undo / Redo stacks (refs avoid stale closures) ---- */
   const layersRef = useRef([])
@@ -317,6 +323,7 @@ export default function App() {
     try {
       const canvasSummary = layersRef.current.length > 0 ? generateCanvasSummary(layersRef.current) : []
       const result = await runAgent(text, canvasSummary, controller.signal)
+      recordResponseTime(Date.now() - loadingStartRef.current)
 
       // Use layersRef.current instead of closure-captured `layers` to
       // avoid race conditions when two commands fire in quick succession.
