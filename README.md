@@ -34,7 +34,7 @@
 
 ---
 
-## 架构
+## 架构：厚前端 + 薄代理 + 智能 LLM
 
 ```
       用户语音
@@ -43,17 +43,18 @@
   ┌──────────────────────────────────────┐
   │  厚前端（浏览器）                     │
   │                                      │
-  │  ● ASR 引擎（讯飞 / Web Speech API）  │
+  │  ● VoiceController — Web Speech API  │
   │  ● agent.js — 调用代理层              │
   │  ● 解析 JSON → 状态判断               │
   │  ● Canvas 2D 渲染                     │
   │  ● canvasSummary — 画布状态摘要       │
+  │  ● History — 指令历史                 │
   └────────────┬─────────────────────────┘
                │ { text, canvasSummary }
                ▼
   ┌──────────────────────────────────────┐
   │  薄代理（Express）                    │
-  │  ● LLM 转发 + 讯飞鉴权                │
+  │  ● 接收请求 + 注入 API Key            │
   │  ● 注入系统提示词（绘画设计师角色）    │
   │  ● 坐标校验 validateActions()         │
   │  ● 多 Provider 路由                   │
@@ -103,40 +104,6 @@
 
 ---
 
-## 核心功能
-
-### 语音绘图
-
-| 功能 | 说明 |
-|------|------|
-| **双引擎 ASR** | 讯飞极速转写（默认，高精度）/ 浏览器 Web Speech API（降级，零配置），一键切换 |
-| **自然语言理解** | 支持模糊口语指令——"右上角画个红色的圆"，由 LLM 自动解析 |
-| **画布状态感知** | 每次指令携带 3×3 区域画布摘要，LLM 具备空间上下文，支持增量修改 |
-| **多图形支持** | 圆形、矩形、线条 + 任意 SVG 路径（LLM 生成，含渐变/曲线/光影） |
-| **ASR 纠错** | 内置同音字映射表（发→画、园→圆等） |
-| **消息反馈** | 绘图完成后文字展示结果 |
-
-### 画布交互
-
-| 功能 | 说明 |
-|------|------|
-| **鼠标选中** | 点击图形选中，蓝色虚线框 + 四角手柄 |
-| **拖拽移动** | 选中后拖拽修改位置 |
-| **键盘删除** | Delete / Backspace |
-| **坐标 HUD** | 选中时显示精确坐标和尺寸 |
-| **网格参考系** | 可切换坐标网格 + 边距标尺 |
-
-### 撤销与持久化
-
-| 功能 | 说明 |
-|------|------|
-| **多步撤销/重做** | 50 步撤销栈（Ctrl+Z / Ctrl+Y） |
-| **自动保存** | localStorage 300ms 节流，刷新恢复 |
-| **导出 PNG** | 一键导出画布图片 |
-| **导出/导入项目** | .json 项目文件保存/加载 |
-
----
-
 ## 目录结构
 
 ```
@@ -145,6 +112,7 @@ voice-to-image-generation/
 │   ├── components/
 │   │   ├── Canvas.jsx            原生 Canvas 2D 渲染 + 鼠标交互
 │   │   ├── VoiceController.jsx   语音识别生命周期
+│   │   ├── VoiceStatusBar.jsx    状态可视化指示器
 │   │   ├── VoiceStatusBar.jsx    状态指示器
 │   │   ├── QuickBar.jsx          悬浮操作栏
 │   │   ├── History.jsx           指令历史
@@ -152,6 +120,7 @@ voice-to-image-generation/
 │   │   └── ErrorBoundary.jsx     错误边界
 │   ├── services/
 │   │   ├── agent.js              LLM 代理客户端
+│   │   ├── tts.js                语音合成封装
 │   │   ├── asr-manager.js        ASR 统一入口（双引擎切换）
 │   │   ├── asr-xunfei.js         讯飞 IAT WebSocket 引擎
 │   │   ├── asr-browser.js        浏览器 Web Speech API 引擎
@@ -173,6 +142,10 @@ voice-to-image-generation/
 │   │   ├── runner.mjs
 │   │   └── results/              （生成结果，已 gitignore）
 │   └── package.json
+├── docs/                         # 文档
+│   ├── design.md                 设计文档
+│   └── benchmark-selection.md    基准测试选型报告
+├── .harness/                     # Harness 自动化工作制
 ├── scripts/
 │   └── switch-asr.mjs            CLI 语音引擎切换工具
 ├── docs/
@@ -223,16 +196,8 @@ node proxy.js
 npm install
 npm run dev
 ```
-
-浏览器打开 `http://localhost:5173/voice-to-image-generation/`，点击麦克风按钮开始语音绘图。
-
-### 语音引擎切换
-
-```bash
-npm run asr:xunfei    # 切换到讯飞（默认）
-npm run asr:browser   # 切换到浏览器 Web Speech API
-```
-
+### 4.选择语音引擎  
+在根文件夹下：
 #### 模式一：讯飞极速转写（默认）
 
 使用讯飞 IAT WebSocket 接口，端到端延迟低、中文识别准。
@@ -256,6 +221,42 @@ npm run asr:browser
 
 > 没有讯飞 Key？直接用 Edge 打开，零配置即可体验。
 
+
+浏览器打开 `http://localhost:5173/voice-to-image-generation/`，点击「开始绘画」按钮。
+
+
+---
+## 核心功能
+
+### 语音绘图
+
+| 功能 | 说明 |
+|------|------|
+| **语音交互** | 点击"开始绘画"后全程语音驱动 |
+| **自然语言理解** | 支持模糊口语指令，LLM 自动解析意图和参数 |
+| **画布状态感知** | 每次指令携带当前画布摘要，LLM 具备空间上下文 |
+| **多图形支持** | 圆形、矩形、线条 + 任意 SVG 路径（LLM 生成） |
+| **ASR 纠错** | 内置同音字映射（发→画、园→圆、巨形→矩形） |
+
+### 画布交互
+
+| 功能 | 说明 |
+|------|------|
+| **鼠标选中** | 点击图形选中，蓝色虚线框 + 四角手柄 |
+| **拖拽移动** | 选中后拖拽修改位置 |
+| **键盘删除** | Delete / Backspace |
+| **坐标 HUD** | 选中时显示精确坐标和尺寸 |
+| **网格参考系** | 可切换坐标网格 + 边距标尺 |
+
+### 撤销与持久化
+
+| 功能 | 说明 |
+|------|------|
+| **多步撤销/重做** | 50 步撤销栈（Ctrl+Z / Ctrl+Y） |
+| **自动保存** | localStorage 300ms 节流，刷新恢复 |
+| **导出 PNG** | 一键导出画布图片 |
+| **导出/导入项目** | .json 项目文件保存/加载 |
+
 ---
 
 ## 模型基准测试
@@ -267,7 +268,7 @@ cd server
 node benchmark/runner.mjs
 ```
 
-**结论（2026-06-13）：** 四模型（DeepSeek V4 Flash/Pro、Qwen3.7-Max、Kimi K2.6）准确率 **95.5% 完全相同**，DeepSeek V4 Flash 以 **265ms 延迟**为最优选型。详见 `docs/benchmark-selection.md`。
+**结论：** 四模型（DeepSeek V4 Flash/Pro、Qwen3.7-Max、Kimi K2.6）准确率 95.5% 完全相同，**DeepSeek V4 Flash 以 265ms 延迟**为最优选型。详见 `docs/benchmark-selection.md`。
 
 ---
 
