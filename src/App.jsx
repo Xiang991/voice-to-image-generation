@@ -26,6 +26,20 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null)
   const [gridVisible, setGridVisible] = useState(false)
   const [messages, setMessages] = useState([])
+  const loadingStartRef = useRef(null)
+
+  /* ---- Elapsed time indicator during loading ---- */
+  useEffect(() => {
+    if (loading) {
+      loadingStartRef.current = Date.now()
+      setStatus('思考中')
+      const timer = setInterval(() => {
+        const sec = Math.floor((Date.now() - loadingStartRef.current) / 1000)
+        setStatus(sec < 60 ? `⏱ ${sec}s` : `⏱ ${Math.floor(sec / 60)}m${sec % 60}s`)
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [loading])
 
   /* ---- Undo / Redo stacks (refs avoid stale closures) ---- */
   const layersRef = useRef([])
@@ -294,7 +308,6 @@ export default function App() {
     }
 
     setLoading(true)
-    setStatus('思考中...')
     takeSnapshot()
 
     // 创建 AbortController，用于取消请求
