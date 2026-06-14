@@ -6,10 +6,10 @@ import VoiceController from './components/VoiceController.jsx'
 import VoiceStatusBar from './components/VoiceStatusBar.jsx'
 import QuickBar from './components/QuickBar.jsx'
 import History from './components/History.jsx'
+import MessageLog from './components/MessageLog.jsx'
 import { runAgent } from './services/agent.js'
 import { generateCanvasSummary } from './services/canvasSummary.js'
 import { classifyIntent } from './services/intentClassifier.js'
-import { speak } from './services/tts.js'
 import { saveLayers, loadLayers, clearLayers } from './services/storage.js'
 import { generateHints } from './services/hints.js'
 import { CONFIG } from './config.js'
@@ -26,6 +26,7 @@ export default function App() {
   const [voiceMode, setVoiceMode] = useState('idle')
   const [selectedId, setSelectedId] = useState(null)
   const [gridVisible, setGridVisible] = useState(false)
+  const [messages, setMessages] = useState([])
 
   /* ---- Undo / Redo stacks (refs avoid stale closures) ---- */
   const layersRef = useRef([])
@@ -42,6 +43,13 @@ export default function App() {
     redoStackRef.current = []
     setUndoCount(undoStackRef.current.length)
     setRedoCount(0)
+  }, [])
+
+  const addMessage = useCallback((text) => {
+    setMessages((prev) => [
+      { id: nextId++, text, timestamp: new Date() },
+      ...prev,
+    ])
   }, [])
 
   /* ---- Canvas sync ---- */
@@ -80,7 +88,7 @@ export default function App() {
   const handleLayersChange = useCallback((newLayers) => {
     takeSnapshot()
     setLayers(newLayers)
-  }, [takeSnapshot])
+  }, [takeSnapshot, addMessage])
 
   /* ---- Local actions (undo / redo / clear / delete) ---- */
 
@@ -89,7 +97,7 @@ export default function App() {
       if (undoStackRef.current.length === 0) {
         const msg = '没有可撤销的操作'
         setStatus(msg)
-        speak(msg)
+        addMessage(msg)
         return
       }
       const restored = undoStackRef.current.pop()
@@ -103,12 +111,12 @@ export default function App() {
         ...prev,
       ])
       setStatus('已撤销')
-      speak('已撤销')
+      addMessage('已撤销')
     } else if (action === 'redo') {
       if (redoStackRef.current.length === 0) {
         const msg = '没有可重做的操作'
         setStatus(msg)
-        speak(msg)
+        addMessage(msg)
         return
       }
       const restored = redoStackRef.current.pop()
@@ -122,12 +130,12 @@ export default function App() {
         ...prev,
       ])
       setStatus('已重做')
-      speak('已重做')
+      addMessage('已重做')
     } else if (action === 'clear') {
       if (layersRef.current.length === 0) {
         const msg = '画布已经是空的'
         setStatus(msg)
-        speak(msg)
+        addMessage(msg)
         return
       }
       takeSnapshot()
@@ -139,7 +147,7 @@ export default function App() {
         ...prev,
       ])
       setStatus('画布已清空')
-      speak('画布已清空')
+      addMessage('画布已清空')
     } else if (action === 'deleteSelected') {
       if (canvasRef.current?.deleteSelected()) {
         setHistory((prev) => [
@@ -148,7 +156,7 @@ export default function App() {
         ])
       }
     }
-  }, [takeSnapshot])
+  }, [takeSnapshot, addMessage])
 
   /* ---- Export / Import ---- */
 
@@ -161,9 +169,9 @@ export default function App() {
     a.download = `voice-painting-${Date.now()}.png`
     a.href = dataUrl
     a.click()
-    speak('已保存图片')
+    addMessage('已保存图片')
     setStatus('已保存图片')
-  }, [])
+  }, [addMessage])
 
   const exportProject = useCallback(() => {
     const json = JSON.stringify({ version: 1, layers: layersRef.current }, null, 2)
@@ -174,9 +182,9 @@ export default function App() {
     a.href = url
     a.click()
     URL.revokeObjectURL(url)
-    speak('已保存项目')
+    addMessage('已保存项目')
     setStatus('已保存项目')
-  }, [])
+  }, [addMessage])
 
   const importProject = useCallback(() => {
     fileInputRef.current?.click()
@@ -195,7 +203,7 @@ export default function App() {
       try {
         const data = JSON.parse(ev.target.result)
         if (!data?.layers || !Array.isArray(data.layers)) {
-          speak('文件格式不正确')
+          addMessage('文件格式不正确')
           setStatus('导入失败：格式不正确')
           return
         }
@@ -204,17 +212,17 @@ export default function App() {
           if (l.id >= nextId) nextId = l.id + 1
         }
         setLayers(data.layers)
-        speak('已导入项目')
+        addMessage('已导入项目')
         setStatus('已导入项目')
       } catch {
-        speak('文件格式不正确')
+        addMessage('文件格式不正确')
         setStatus('导入失败：无法解析文件')
       }
     }
     reader.readAsText(file)
     // Reset so the same file can be re-imported
     e.target.value = ''
-  }, [takeSnapshot])
+  }, [takeSnapshot, addMessage])
 
   /* ---- Keyboard shortcuts ---- */
 
@@ -248,7 +256,7 @@ export default function App() {
       ])
       const msg = '请说绘图指令，例如画红色圆'
       setStatus(msg)
-      speak(msg)
+      addMessage(msg)
       return
     }
 
@@ -259,11 +267,11 @@ export default function App() {
         executeLocal('redo')
       } else if (/显示网格|打开网格/.test(text)) {
         if (!canvasRef.current?.isGridVisible?.()) toggleGrid()
-        speak('已显示网格')
+        addMessage('已显示网格')
         setStatus('已显示网格')
       } else if (/隐藏网格|关闭网格/.test(text)) {
         if (canvasRef.current?.isGridVisible?.()) toggleGrid()
-        speak('已隐藏网格')
+        addMessage('已隐藏网格')
         setStatus('已隐藏网格')
       } else if (/结束(绘画|绘图|画图|画画)/.test(text)) {
         return
@@ -314,12 +322,12 @@ export default function App() {
       setStatus(summary)
       // Wait for canvas to finish rendering (esp. async SVGs) before speaking
       await canvasRef.current?.waitForRender?.()
-      speak(summary)
+      addMessage(summary)
     } catch (err) {
       console.error('Agent error:', err)
       const msg = '抱歉，出了点问题，请再试一次'
       setStatus(msg)
-      speak(msg)
+      addMessage(msg)
       setHistory((prev) => [
         { id: nextId++, text, status: 'error', timestamp: new Date() },
         ...prev,
@@ -327,7 +335,7 @@ export default function App() {
     } finally {
       setLoading(false)
     }
-  }, [executeLocal, takeSnapshot])
+  }, [executeLocal, takeSnapshot, addMessage])
 
   const drawingActive = voiceMode === 'listening'
 
@@ -408,6 +416,10 @@ export default function App() {
         </div>
 
         <aside className="side-panel">
+          <div className="panel-section">
+            <h3>系统消息</h3>
+            <MessageLog items={messages} />
+          </div>
           <div className="panel-section">
             <h3>指令历史</h3>
             <History items={history} />
