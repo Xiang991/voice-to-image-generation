@@ -36,6 +36,7 @@ export default function App() {
         }
         setStatus('已撤销')
         speak('已撤销')
+        // TODO: 多步撤销 + redo 栈 — 当前仅支持撤销最后一步
         return prev.slice(0, -1)
       })
       setHistory((prev) => [
