@@ -27,6 +27,19 @@ export default function App() {
   const [gridVisible, setGridVisible] = useState(false)
   const [messages, setMessages] = useState([])
 
+  /* ---- Cancel ongoing request ---- */
+  const abortRef = useRef(null)
+
+  const cancelCommand = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
+    }
+    setLoading(false)
+    setStatus('已取消')
+    addMessage('已取消')
+  }, [addMessage])
+
   /* ---- Undo / Redo stacks (refs avoid stale closures) ---- */
   const layersRef = useRef([])
   const undoStackRef = useRef([])
@@ -284,9 +297,13 @@ export default function App() {
     setStatus('思考中...')
     takeSnapshot()
 
+    // 创建 AbortController，用于取消请求
+    const controller = new AbortController()
+    abortRef.current = controller
+
     try {
       const canvasSummary = layersRef.current.length > 0 ? generateCanvasSummary(layersRef.current) : []
-      const result = await runAgent(text, canvasSummary)
+      const result = await runAgent(text, canvasSummary, controller.signal)
 
       // Use layersRef.current instead of closure-captured `layers` to
       // avoid race conditions when two commands fire in quick succession.
@@ -323,6 +340,10 @@ export default function App() {
       await canvasRef.current?.waitForRender?.()
       addMessage(summary)
     } catch (err) {
+      if (err.name === 'AbortError') {
+        setLoading(false)
+        return
+      }
       console.error('Agent error:', err)
       const msg = '抱歉，出了点问题，请再试一次'
       setStatus(msg)
@@ -332,6 +353,7 @@ export default function App() {
         ...prev,
       ])
     } finally {
+      if (abortRef.current === controller) abortRef.current = null
       setLoading(false)
     }
   }, [executeLocal, takeSnapshot, addMessage])
@@ -355,6 +377,7 @@ export default function App() {
         onSubmit={handleCommand}
         disabled={loading}
         onStateChange={setVoiceMode}
+        onCancel={cancelCommand}
       />
 
       <AnimatePresence mode="wait">

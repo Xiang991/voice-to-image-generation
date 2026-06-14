@@ -6,7 +6,7 @@ import { createAsr } from '../services/asr-manager.js'
 const SILENCE_MS = 1500
 const END_RE = /结束.{0,1}(绘画|绘图|画图|画画)/
 
-export default function VoiceController({ onSubmit, disabled, onStateChange }) {
+export default function VoiceController({ onSubmit, disabled, onStateChange, onCancel }) {
   const [mode, setMode] = useState('idle')
   const [transcript, setTranscript] = useState('')
   const [error, setError] = useState(null)
@@ -240,10 +240,10 @@ export default function VoiceController({ onSubmit, disabled, onStateChange }) {
           </motion.span>
         )}
         <span className="vc-hint">{hint}</span>
-        {mode === 'listening' && (
+        {(mode === 'listening' || disabled) && (
           <motion.button
             className="vc-stop-btn"
-            onClick={stopListening}
+            onClick={disabled ? () => onCancel?.() : stopListening}
             type="button"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}

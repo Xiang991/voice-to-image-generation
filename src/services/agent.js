@@ -1,10 +1,11 @@
 import { CONFIG } from '../config.js'
 
-export async function runAgent(text, canvasSummary = []) {
+export async function runAgent(text, canvasSummary = [], signal) {
   const res = await fetch(`${CONFIG.proxyUrl}/api/agent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, canvasSummary })
+    body: JSON.stringify({ text, canvasSummary }),
+    signal,
   })
 
   if (!res.ok) {
