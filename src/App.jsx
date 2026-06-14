@@ -6,7 +6,6 @@ import VoiceController from './components/VoiceController.jsx'
 import VoiceStatusBar from './components/VoiceStatusBar.jsx'
 import QuickBar from './components/QuickBar.jsx'
 import History from './components/History.jsx'
-import MessageLog from './components/MessageLog.jsx'
 import { runAgent } from './services/agent.js'
 import { generateCanvasSummary } from './services/canvasSummary.js'
 import { classifyIntent } from './services/intentClassifier.js'
@@ -416,11 +415,7 @@ export default function App() {
         </div>
 
         <aside className="side-panel">
-          <div className="panel-section">
-            <h3>系统消息</h3>
-            <MessageLog items={messages} />
-          </div>
-          <div className="panel-section">
+<div className="panel-section">
             <h3>指令历史</h3>
             <History items={history} />
           </div>

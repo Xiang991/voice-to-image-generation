@@ -149,6 +149,20 @@ export default function VoiceController({ onSubmit, disabled, onStateChange }) {
     bootAttemptRef.current = 0
   }, [])
 
+  // Stop listening manually
+  const stopListening = useCallback(() => {
+    clearSilence()
+    deadRef.current = false
+    try { asrRef.current?.destroy() } catch {}
+    asrRef.current = null
+    const text = finalRef.current.trim()
+    finalRef.current = ''
+    setTranscript('')
+    setMode('idle')
+    setMicReady(false)
+    if (text) commitText(text)
+  }, [clearSilence, commitText])
+
   // Boot when entering listening mode
   useEffect(() => {
     if (mode === 'listening' && !disabled) {
@@ -226,6 +240,22 @@ export default function VoiceController({ onSubmit, disabled, onStateChange }) {
           </motion.span>
         )}
         <span className="vc-hint">{hint}</span>
+        {mode === 'listening' && (
+          <motion.button
+            className="vc-stop-btn"
+            onClick={stopListening}
+            type="button"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+          >
+            <MicOff size={14} strokeWidth={2.5} />
+            <span>结束会话</span>
+          </motion.button>
+        )}
       </div>
 
       <AnimatePresence mode="wait">
