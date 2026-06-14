@@ -252,13 +252,16 @@
     "thin_proxy": "step-7",
     "full_stack_complete": "step-13",
     "model_benchmark": "2026-06-13",
+    "model_benchmark": "2026-06-13",
     "multi_provider_routing": "2026-06-13",
-    "robustness_hardening": "2026-06-13"
+    "robustness_hardening": "2026-06-13",
+    "quality_improvement": "2026-06-14"
   },
   "e2e_interval": 5,
   "notes": [
     "2026-06-13: 多模型基准测试完成。测试 DeepSeek V4 Flash/Pro、Qwen3.7-Max、Kimi K2.6。结论：准确率 95.5% 等价，DeepSeek V4 Flash 以 265ms 延迟保持最优选型。详见 docs/benchmark-selection.md。",
     "2026-06-13: 多 Provider 路由接入（DeepSeek/Qwen/GLM/Kimi），providers.js 注册表 + proxy.js 动态路由，响应追加 _provider/_model 字段。后端 smoke test 新增 providerRouting / unknownProviderFallback 用例。",
-    "2026-06-13: 全链路鲁棒性提升（PR #10 fix/robustness-improvements）：(1) proxy.js: extractJSON 兼容 LLM markdown 代码块，AbortController 30s 超时返回 504，启动时校验 DEEPSEEK_API_KEY，内部错误不泄露；(2) tts.js: 修复 Chrome getVoices() 异步加载，voiceschanged 事件预加载；(3) VoiceController.jsx: 连续失败重试上限 5 次防无限重启；(4) App.jsx: TTS 语音反馈接入全分支（draw/chat/control/error）。测试 173/173 全过，smoke test 7/7 全过，Vite build 通过。"
+    "2026-06-13: 全链路鲁棒性提升（PR #10 fix/robustness-improvements）：(1) proxy.js: extractJSON 兼容 LLM markdown 代码块，AbortController 30s 超时返回 504，启动时校验 DEEPSEEK_API_KEY，内部错误不泄露；(2) tts.js: 修复 Chrome getVoices() 异步加载，voiceschanged 事件预加载；(3) VoiceController.jsx: 连续失败重试上限 5 次防无限重启；(4) App.jsx: TTS 语音反馈接入全分支（draw/chat/control/error）。测试 173/173 全过，smoke test 7/7 全过，Vite build 通过。",
+    "2026-06-14: 绘画质量专项改进。1) 系统提示词重设计：3×3 坐标网格替代模糊的'中央区域附近'，增加尺寸量化分级(小/中/大)、碰撞规避(50px+)、SVG 质量规则。2) proxy.js 新增 validateActions() 后处理：坐标钳制+最小尺寸保障。3) canvasSummary.js 新增 zone 区域描述字段。4) TTS 禁用。基准测试 95.5% 保持不变，坐标精度显著提升。"
   ]
 }
