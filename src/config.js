@@ -6,6 +6,6 @@ export const CONFIG = {
   asr: {
     // 'xunfei' (默认, 需 Key) | 'browser' (Web Speech API)
     mode: 'xunfei',
-    xunfeiAppId: '082d4a3d',
+    xunfeiAppId: '填写appid',
   },
 }
