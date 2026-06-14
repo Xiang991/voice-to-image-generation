@@ -16,7 +16,6 @@ vi.mock('../components/Canvas.jsx', () => ({
         setLayers: vi.fn(),
         deleteSelected: vi.fn(),
         toDataURL: vi.fn(() => 'data:image/png;base64,'),
-        waitForRender: vi.fn(() => Promise.resolve()),
         toggleGrid: vi.fn(),
         isGridVisible: vi.fn(() => false),
         getSelectedId: vi.fn(() => null),

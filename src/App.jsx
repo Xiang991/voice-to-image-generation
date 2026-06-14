@@ -356,8 +356,6 @@ export default function App() {
       ])
       const summary = result.summary || '绘制完成'
       setStatus(summary)
-      // Wait for canvas to finish rendering (esp. async SVGs) before speaking
-      await canvasRef.current?.waitForRender?.()
       addMessage(summary)
     } catch (err) {
       if (err.name === 'AbortError') {

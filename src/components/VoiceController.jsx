@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Mic, MicOff, Loader2, Lock } from 'lucide-react'
 import { createAsr } from '../services/asr-manager.js'
 
-const SILENCE_MS = 300
+const SILENCE_MS = 150
 const END_RE = /结束.{0,1}(绘画|绘图|画图|画画)/
 
 export default function VoiceController({ onSubmit, disabled, onStateChange, onCancel }) {
