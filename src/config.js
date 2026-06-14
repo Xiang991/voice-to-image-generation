@@ -4,8 +4,8 @@ export const CONFIG = {
   canvasWidth: 800,
   canvasHeight: 600,
   asr: {
-    // 'xunfei' (默认, 需 Key) | 'browser' (Web Speech API)
-    mode: 'xunfei',
+    // 'browser' (默认, 零配置) | 'xunfei' (需 Key)
+    mode: 'browser',
     xunfeiAppId: '082d4a3d',
   },
 }
