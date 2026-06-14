@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "preview": "vite preview",
     "deploy": "npm run build && gh-pages -d dist",
-    "predeploy": "npm run build"
+    "predeploy": "npm run build",
+    "asr:xunfei": "node scripts/switch-asr.mjs xunfei",
+    "asr:browser": "node scripts/switch-asr.mjs browser"
   },
   "dependencies": {
     "fabric": "^7.4.0",
