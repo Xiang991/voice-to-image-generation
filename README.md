@@ -3,7 +3,7 @@
 > **七牛云暑期实训营 参赛作品**  
 > 语音驱动的 AI 绘画工具 —— 你说，它画。支持鼠标交互增强。
 
-**演示 Demo：** [https://livefff.asia/](https://livefff.asia/)
+**演示 Demo：**https://www.bilibili.com/video/BV1wzJK6zExG/?spm_id_from=333.1387.homepage.video_card.click&vd_source=68837250daeafdb481ecf452c014f217
 
 ---
 
