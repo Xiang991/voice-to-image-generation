@@ -58,6 +58,9 @@ export default function VoiceController({ onSubmit, disabled, onStateChange, onC
   // Called when ASR detects end of speech
   const handleAsrEnd = useCallback(() => {
     if (deadRef.current) return
+    // Clear any previous end-of-speech timeout — guards against
+    // duplicate onEndCb calls from some browser ASR implementations
+    clearSilence()
     const text = finalRef.current.trim()
     if (text) {
       silenceRef.current = setTimeout(() => {
@@ -126,6 +129,7 @@ export default function VoiceController({ onSubmit, disabled, onStateChange, onC
       setMicReady(true)
       setError(null)
       setPermDenied(false)
+      bootAttemptRef.current = 0
     } catch (err) {
       if (!deadRef.current) {
         setError(err.message || '语音识别初始化失败')

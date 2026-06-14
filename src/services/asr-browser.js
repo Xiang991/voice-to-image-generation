@@ -44,11 +44,6 @@ export function createBrowserAsr() {
       onResultCb?.({ transcript: final + interim, isFinal: !!final && !interim })
     }
 
-    rec.onspeechend = () => {
-      if (killed) return
-      onEndCb?.()
-    }
-
     rec.onerror = (e) => {
       if (killed) return
       if (e.error === 'aborted') return
