@@ -10,6 +10,31 @@ app.use(express.json({ limit: '1mb' }));
 const LLM_TIMEOUT_MS = 30_000;
 const API_KEY = process.env.DEEPSEEK_API_KEY;
 
+/**
+ * 后处理：校验并修正绘图动作参数
+ * - 坐标钳制到画布范围内
+ * - 确保最小可见尺寸
+ */
+function validateActions(actions) {
+  if (!Array.isArray(actions)) return actions;
+  return actions.map(a => {
+    if (a.type !== 'draw_shape' && a.type !== 'draw_svg') return a;
+    const p = a.params || {};
+    if (typeof p.x === 'number') p.x = Math.max(10, Math.min(790, Math.round(p.x)));
+    if (typeof p.y === 'number') p.y = Math.max(10, Math.min(590, Math.round(p.y)));
+    if (a.type === 'draw_shape') {
+      if (p.shape === 'circle' && p.radius != null) {
+        p.radius = Math.max(20, Math.min(300, Math.round(p.radius)));
+      }
+      if (p.shape === 'rect') {
+        if (p.width != null) p.width = Math.max(20, Math.min(780, Math.round(p.width)));
+        if (p.height != null) p.height = Math.max(20, Math.min(580, Math.round(p.height)));
+      }
+    }
+    return { ...a, params: p };
+  });
+}
+
 if (!API_KEY) {
   console.error('缺少 DEEPSEEK_API_KEY 环境变量，请在 server/.env 中配置');
   process.exit(1);
@@ -35,7 +60,34 @@ const SYSTEM_PROMPT = `你是一个绘画助手。用户通过语音告诉你画
 3. 复合指令用 actions 数组返回多个动作
 4. 优先 draw_shape 画几何图形，draw_svg 画复杂物体（小狗、房子等）
 5. status: 成功=success, 优化了模糊指令=optimized, 无法理解=error
-6. 坐标在画布中央区域（400,300 附近）`;
+
+6. 画布坐标系统（800×600，中心点 400,300）：
+   ┌────────────┬────────────┬────────────┐
+   │ 左上角      │ 中上方      │ 右上角      │
+   │ (133,100)   │ (400,100)   │ (667,100)   │
+   ├────────────┼────────────┼────────────┤
+   │ 左中方      │ 中心        │ 右中方      │
+   │ (133,300)   │ (400,300)   │ (667,300)   │
+   ├────────────┼────────────┼────────────┤
+   │ 左下角      │ 中下方      │ 右下角      │
+   │ (133,500)   │ (400,500)   │ (667,500)   │
+   └────────────┴────────────┴────────────┘
+   位置关系映射："左边"→x<267, "右边"→x>533, "上面"→y<200, "下面"→y>400
+   "旁边/附近"→与参考物相距50-80px, "之间/中间"→取两参考物的中点
+   两个物体"并排"→y相同,x相距至少150px
+
+7. 尺寸约定（未指定大小时默认用"中"）：
+   - 小：圆半径30-50, 矩形60×40
+   - 中：圆半径60-100, 矩形120×80
+   - 大：圆半径120-180, 矩形200×150
+
+8. 避免重叠：新图形与已有图形至少保持50px间距
+
+9. SVG 要求：
+   - 必须包含有效绘图元素（path/circle/rect/ellipse等），不可为空
+   - 优先使用多种颜色和具体路径提高视觉效果
+   - 确保在 800×600 视口内完整可见
+   - 无法生成有效 SVG 时退而用 draw_shape 组合代替`;
 
 /**
  * 从 LLM 响应中提取 JSON（兼容 ```json 代码块包裹）
@@ -153,6 +205,11 @@ app.post('/api/agent', async (req, res) => {
         _provider: providerId || 'deepseek',
         _model: effectiveModel,
       });
+    }
+
+    // 后处理：校验并修正绘图参数
+    if (parsed.actions) {
+      parsed.actions = validateActions(parsed.actions);
     }
 
     res.json({ ...parsed, _provider: providerId || 'deepseek', _model: effectiveModel });
