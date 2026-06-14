@@ -404,6 +404,8 @@ function drawSvgPlaceholder(ctx, layer) {
 
   useImperativeHandle(ref, () => ({
     setLayers(layers) {
+      // Skip full render if the layers array is reference-equal (no actual change)
+      if (layersRef.current === layers) return
       layersRef.current = layers.map(l => ({ ...l }))
       selectedIdRef.current = null
       if (onSelectChange) onSelectChange(null)
