@@ -251,10 +251,12 @@
     "voice_input": "step-3",
     "thin_proxy": "step-7",
     "full_stack_complete": "step-13",
-    "model_benchmark": "2026-06-13"
+    "model_benchmark": "2026-06-13",
+    "quality_improvement": "2026-06-14"
   },
   "e2e_interval": 5,
   "notes": [
-    "2026-06-13: 多模型基准测试完成。测试 DeepSeek V4 Flash/Pro、Qwen3.7-Max、Kimi K2.6。结论：准确率 95.5% 等价，DeepSeek V4 Flash 以 265ms 延迟保持最优选型。"
+    "2026-06-13: 多模型基准测试完成。测试 DeepSeek V4 Flash/Pro、Qwen3.7-Max、Kimi K2.6。结论：准确率 95.5% 等价，DeepSeek V4 Flash 以 265ms 延迟保持最优选型。",
+    "2026-06-14: 绘画质量专项改进。1) 系统提示词重设计：3×3 坐标网格替代模糊的'中央区域附近'，增加尺寸量化分级(小/中/大)、碰撞规避(50px+)、SVG 质量规则。2) proxy.js 新增 validateActions() 后处理：坐标钳制+最小尺寸保障。3) canvasSummary.js 新增 zone 区域描述字段。4) TTS 禁用。基准测试 95.5% 保持不变，坐标精度显著提升。"
   ]
 }
