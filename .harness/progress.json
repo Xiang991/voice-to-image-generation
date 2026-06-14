@@ -252,7 +252,6 @@
     "thin_proxy": "step-7",
     "full_stack_complete": "step-13",
     "model_benchmark": "2026-06-13",
-    "model_benchmark": "2026-06-13",
     "multi_provider_routing": "2026-06-13",
     "robustness_hardening": "2026-06-13",
     "quality_improvement": "2026-06-14"
