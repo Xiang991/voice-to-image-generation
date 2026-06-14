@@ -9,6 +9,7 @@ import { runAgent } from './services/agent.js'
 import { generateCanvasSummary } from './services/canvasSummary.js'
 import { classifyIntent } from './services/intentClassifier.js'
 import { speak } from './services/tts.js'
+import { saveLayers, loadLayers, clearLayers } from './services/storage.js'
 import { CONFIG } from './config.js'
 
 let nextId = 1
@@ -44,6 +45,33 @@ export default function App() {
 
   useEffect(() => {
     canvasRef.current?.setLayers(layers)
+  }, [layers])
+
+  /* ---- Persistence (localStorage) ---- */
+
+  // Restore on mount
+  useEffect(() => {
+    const restored = loadLayers()
+    if (restored && restored.length > 0) {
+      // Rehydrate nextId from restored layers
+      for (const l of restored) {
+        if (l.id >= nextId) nextId = l.id + 1
+      }
+      setLayers(restored)
+      setStatus('已恢复上次绘制的画布')
+    }
+  }, [])
+
+  // Auto-save with 300ms debounce
+  const saveTimerRef = useRef(null)
+  useEffect(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      saveLayers(layers)
+    }, 300)
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
   }, [layers])
 
   const handleLayersChange = useCallback((newLayers) => {
@@ -100,6 +128,7 @@ export default function App() {
         return
       }
       takeSnapshot()
+      clearLayers()
       setLayers([])
       setSelectedId(null)
       setHistory((prev) => [
