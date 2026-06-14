@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-纯语音控制的绘图工具。用户通过语音指令完成绘图创作。
+纯语音控制 + 鼠标增强的绘图工具。用户通过语音指令完成绘图创作，也可用鼠标直接操作已绘图形。
 
 **架构：** 厚前端 + 薄代理 + 纯云 LLM
 **核心链路：** 语音识别 → 厚前端解析 → 薄代理转发 → LLM 输出 JSON → 前端状态判断 → Canvas 渲染 + TTS 反馈
@@ -25,10 +25,12 @@ npm run dev
 |------|------|
 | 前端框架 | React 19 + Vite 8 |
 | 语音识别 | Web Speech API |
-| 画布渲染 | Fabric.js 7 |
+| 画布渲染 | **原生 Canvas 2D API**（非 Fabric.js） |
 | LLM | DeepSeek V4 Flash (JSON 直出) |
 | 代理层 | Node Express（仅透传） |
 | TTS | Web Speech Synthesis API |
+| 动画 | Framer Motion 12 |
+| 图标 | Lucide React |
 
 ## 目录结构
 
@@ -36,40 +38,43 @@ npm run dev
 frontend/
 ├── src/
 │   ├── components/
-│   │   ├── VoiceController.jsx   语音输入 + 关键词检测 + 生命周期管理
-│   │   ├── Canvas.jsx            Fabric.js 画布渲染
+│   │   ├── Canvas.jsx            原生 Canvas 2D + 鼠标交互
+│   │   ├── ErrorBoundary.jsx     错误边界
+│   │   ├── VoiceController.jsx   语音输入 + 生命周期管理
+│   │   ├── VoiceStatusBar.jsx    状态指示器
+│   │   ├── QuickBar.jsx          悬浮操作栏（撤销/重做/删除/导出/网格）
 │   │   └── History.jsx           指令历史
 │   ├── services/
-│   │   ├── agent.js              代理客户端（调后端 API）
-│   │   ├── tts.js                Speech Synthesis 封装
-│   │   └── canvasSummary.js      画布状态摘要
-│   ├── utils/
-│   │   └── colors.js             颜色映射
-│   ├── App.jsx                   根组件 + status 分支判断
+│   │   ├── agent.js              代理客户端
+│   │   ├── tts.js                TTS 封装
+│   │   ├── intentClassifier.js   意图分类
+│   │   ├── canvasSummary.js      画布状态摘要
+│   │   ├── storage.js            localStorage 持久化
+│   │   └── hints.js              动态 Guidance
+│   ├── App.jsx                   根组件
 │   ├── App.css                   样式
 │   ├── config.js                 配置
 │   └── main.jsx                  React 入口
 server/
-├── proxy.js          Express 代理（加 Key 转发）
-├── .env              环境变量（API Key）
-└── package.json      依赖
+├── proxy.js          Express 代理
+├── .env              环境变量
+└── package.json
 docs/
-└── design.md         设计文档（交付物）
-.harness/
-├── design.md         设计方案
-└── progress.json     进度跟踪
+├── design.md         设计文档
+└── benchmark-selection.md  模型选型报告
 ```
 
 ## 架构说明：厚前端 + 薄代理 + 纯云 LLM
 
 ```
 用户 → 厚前端（浏览器）
+  ├── 语音输入 / 鼠标操作
   ├── ASR 转文本（VoiceController）
   ├── 调用代理层（agent.js）
   ├── 解析 LLM 返回的 JSON
   ├── 执行状态判断：success / optimized / error
-  ├── 绘图（Canvas.jsx）+ TTS 反馈（tts.js）
-  └── 存储画布状态（canvasSummary.js）
+  ├── 绘图 + 选中/拖拽（Canvas.jsx）+ TTS 反馈（tts.js）
+  └── 持久化（storage.js）+ 动态提示（hints.js）
 
 厚前端 → 薄代理（Express）
   └── 仅加 Key 透传，无分支判断
@@ -80,10 +85,20 @@ docs/
 
 ## 当前状态
 
-- **阶段：** 增量执行
-- **进度：** 3/8 步完成
-- **当前工作：** 实现薄代理层 + 前端微调为新架构
-- **下一步：** 完成 5 个新增文件 + 4 个微调文件
+- **阶段：** 功能完善
+- **已完成迭代（2026-06-14）：**
+  - 画布交互（选中/拖拽/删除）
+  - 多步撤销 + 重做
+  - 竞态条件修复
+  - localStorage 自动保存/恢复
+  - 导出 PNG + 项目文件
+  - 坐标网格 + 标尺 + HUD
+  - 动态 Guidance Chips
+  - TTS 时序修复 + 键盘快捷键
+  - Error Boundary + SVG 加载占位
+  - 性能优化
+- **测试覆盖率：** 164 项功能测试通过，12 项 Canvas 像素测试需原生 node-canvas 模块
+- **构建产物：** ~347 KB JS + ~9.8 KB CSS
 
 ## 工作规范
 

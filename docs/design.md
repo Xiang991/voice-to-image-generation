@@ -205,6 +205,16 @@
 | 语音反馈 | 绘图完成后 TTS 播报结果 | Web Speech Synthesis API | ✅ 已实现 |
 | 画布摘要 | 后续指令参考已绘制图形位置 | canvasSummary.js | ✅ 已实现 |
 | API Key 安全 | Key 仅存于代理层，前端不可见 | Express 代理隐藏 | ✅ 已实现 |
+| **画布交互** | **鼠标选中/拖拽/删除已绘图形** | **Canvas.jsx 鼠标事件 + hitTest** | **✅ Step 1** |
+| **撤销多步栈** | **支持多次撤销 + 重做** | **undoStackRef / redoStackRef** | **✅ Step 2** |
+| **自动保存** | **刷新后恢复画布** | **localStorage 300ms 节流** | **✅ Step 4** |
+| **导出 PNG** | **一键保存为图片** | **Canvas toDataURL** | **✅ Step 5** |
+| **导入/导出项目** | **.json 项目文件** | **FileReader + JSON** | **✅ Step 5** |
+| **坐标网格** | **显示/隐藏坐标参考系** | **Canvas 2D 网格绘制** | **✅ Step 6** |
+| **动态引导** | **根据画布密度切换提示** | **hints.js generateHints** | **✅ Step 7** |
+| **键盘快捷键** | **Ctrl+Z/Y/S** | **全局 keydown 监听** | **✅ Step 8** |
+| **TTS 时序** | **SVG 渲染完再播报** | **waitForRender Promise** | **✅ Step 8** |
+| **错误隔离** | **画布崩溃不波及全局** | **ErrorBoundary 组件** | **✅ Step 9** |
 
 ### 5.2 已知限制
 
@@ -251,16 +261,34 @@ LLM 在 Plan 阶段自动纠正，无需前端额外处理。
 
 ---
 
-## 7. 未完成功能与原因
+## 7. 功能状态
+
+### ✅ 已实现（2026-06-14 优化迭代）
+
+| 功能 | 实现说明 |
+|------|---------|
+| **画布交互** | 鼠标点击选中、拖拽移动、Delete 删除；蓝色虚线选中框 + 四角手柄 |
+| **多步撤销 + 重做** | 基于 ref 的 50 步快照栈，`takeSnapshot` 在每步操作前自动保存 |
+| **竞态保护** | 使用 `layersRef.current` 替代闭包 `layers`，连续快速指令不丢失数据 |
+| **自动保存** | localStorage 300ms 节流写入，页面刷新自动恢复画布 |
+| **导出 PNG** | Canvas `toDataURL` + `<a>` 下载 |
+| **导出/导入项目** | JSON 序列化/反序列化，含格式校验和版本字段 |
+| **坐标网格 + 标尺** | 50px 细网格 + 200px 粗网格 + 边距数字标尺，通过 QuickBar 或语音切换 |
+| **选中 HUD** | 选中图形时显示 `x:y` 坐标和 `r/w/h` 尺寸信息 |
+| **动态 Guidance** | `generateHints(layers)` 根据画布密度返回上下文敏感的提示 |
+| **TTS 时序** | `waitForRender()` Promise 确保 SVG 全部渲染后播报 |
+| **键盘快捷键** | Ctrl+Z 撤销、Ctrl+Y 重做、Ctrl+S 导出 PNG |
+| **Error Boundary** | React class component 捕获画布渲染异常，显示重试按钮 |
+| **SVG 加载占位** | SVG 异步加载期间显示虚线框 + ⌛ 沙漏图标 |
+
+### ⏳ 未完成 / 有意保留
 
 | 功能 | 预期能力 | 未完成原因 |
 |------|---------|-----------|
 | 场景模板系统（draw_scene） | 预设场景组合（"秋天的街道"→房子+树+落叶） | draw_svg 已可覆盖场景绘制需求，模板系统的边际收益有限 |
-| 撤销多步栈 | 支持多次撤销操作 | Canvas 状态栈未实现，当前仅支持单步 undo |
 | 语音唤醒免关键词 | 无需"开始绘画"直接说话 | 避免环境杂音误触发，关键词是安全启动的必要机制 |
-| 画布持久化 | 刷新页面后保留绘制的图形 | localStorage 存储和恢复逻辑未集成 |
 | TTS 语速/音色定制 | 可调节语速和选择语音 | Web Speech Synthesis API 支持有限，且优先级较低 |
-| 画布导出 | 保存为图片 | Canvas.jsx 已有 toDataURL 能力，但未封装导出按钮（纯语音应用无需按钮） |
+| 画布缩放（滚轮） | 放大/缩小视图 | 涉及坐标系统转换，复杂度高，当前优先保证基本交互 |
 
 ---
 
@@ -383,41 +411,58 @@ npm run build
 - `TextInput.jsx` — 文字输入框
 - `DebugPanel.jsx` — API 调试面板
 
-### 10.4 当前组件结构
+### 10.4 当前组件结构（2026-06-14 更新）
 
 ```
 src/components/
-├── VoiceController.jsx    ← 重写：手动启动 + 语音停止 + 持续监听
-├── Canvas.jsx             ← 保持：Fabric.js 渲染
-├── History.jsx            ← 优化：CSS 类替代内联样式
-├── VoiceStatusBar.jsx     ← 新增：四态状态指示
-├── QuickBar.jsx           ← 新增：悬浮快捷栏
-└── _archived/             ← 旧组件暂存
+├── Canvas.jsx             ← 重写：原生 Canvas 2D + 鼠标交互（选中/拖拽/删除）
+├── ErrorBoundary.jsx      ← 新增：画布渲染错误隔离
+├── VoiceController.jsx    ← 语音输入 + 关键词检测 + 生命周期管理
+├── VoiceStatusBar.jsx     ← 四态可视化指示（等待/监听/思考/出错）
+├── QuickBar.jsx           ← 悬浮操作栏（撤销/重做/删除/导出/网格）
+├── History.jsx            ← 指令历史列表
+└── _archived/
     ├── VoiceInput.jsx
     ├── TextInput.jsx
     └── DebugPanel.jsx
 ```
 
-### 10.5 更新后的指令能力清单
+```
+src/services/
+├── agent.js               ← LLM 代理客户端（调后端 API）
+├── tts.js                 ← Speech Synthesis 封装
+├── intentClassifier.js    ← draw / control / chat 三分类
+├── canvasSummary.js       ← 画布状态摘要
+├── storage.js             ← localStorage 持久化（2026-06-14 新增）
+└── hints.js               ← 动态 Guidance 生成（2026-06-14 新增）
+```
+
+### 10.5 更新后的指令能力清单（2026-06-14 更新）
 
 | 类别 | 示例指令 | 处理方式 | 状态 |
 |------|---------|---------|------|
 | 几何图形 | "画红色圆" | LLM → draw_shape → Canvas | ✅ |
 | 自由图形 | "画一只小狗" | LLM → draw_svg → Canvas | ✅ |
 | 复合指令 | "画红色圆和蓝色矩形" | LLM → 多 actions | ✅ |
-| 本地撤销 | "撤销" / 点击按钮 | 本地 layers.pop() | ✅ 新增 |
-| 本地清空 | "清空" / 点击按钮 | 本地 layers = [] | ✅ 新增 |
-| 语音结束 | "结束绘画" | VoiceController 退出监听 | ✅ 新增 |
-| 闲聊过滤 | "今天天气真好" | 本地分类 → TTS 提示 | ✅ 新增 |
-| TTS 反馈 | 每条指令执行后 | speak(summary/error) | ✅ 新增 |
+| 画布交互 | 鼠标选中/拖拽/Delete 删除 | Canvas 鼠标事件 + hitTest | ✅ Step 1 |
+| 本地撤销 | "撤销" / Ctrl+Z / 点击按钮 | undoStackRef 快照栈 | ✅ Step 2 |
+| 本地重做 | "重做" / Ctrl+Y / 点击按钮 | redoStackRef 快照栈 | ✅ Step 2 |
+| 本地清空 | "清空" / 点击按钮 | takeSnapshot + setLayers([]) | ✅ |
+| 网格控制 | "显示网格" / "隐藏网格" | toggleGrid() | ✅ Step 6 |
+| 导出 PNG | Ctrl+S / 点击按钮 | Canvas toDataURL | ✅ Step 5 |
+| 导出/导入项目 | 点击按钮 | JSON 序列化/文件读写 | ✅ Step 5 |
+| 语音结束 | "结束绘画" | VoiceController 退出监听 | ✅ |
+| 闲聊过滤 | "今天天气真好" | 本地分类 → TTS 提示 | ✅ |
+| TTS 反馈 | 每条指令执行后 | speak(summary/error) | ✅ |
 
-### 10.6 未完成功能
+### 10.6 已完成功能历史
 
-| 功能 | 原因 |
-|------|------|
-| 薄代理层（server/） | 计划于 Step 7，需独立 Express 服务 |
-| API Key 隐藏 | 依赖代理层完成后迁移 |
-| 画布摘要（canvasSummary.js） | 依赖 agent.js 重写，当前 ReAct 循环不传画布状态 |
-| 撤销多步栈 | Fabric.js 状态栈实现复杂度高 |
-| 纯语音模式 | 后续以双模式切换方式加入 |
-| 画布导出 | P2 优先级 |
+| 功能 | 完成时间 | 说明 |
+|------|---------|------|
+| 薄代理层（server/） | 已完成 | Express 代理 + 多 Provider 路由 |
+| API Key 隐藏 | 已完成 | 前端不接触任何 API Key |
+| 画布摘要（canvasSummary.js） | 已完成 | 每次 LLM 请求附带画布上下文 |
+| 撤销多步栈 | ✅ 2026-06-14 | 基于 ref 的 50 步快照栈 |
+| 画布导出 | ✅ 2026-06-14 | PNG + JSON 项目文件 |
+| 画布持久化 | ✅ 2026-06-14 | localStorage 自动保存/恢复 |
+| 画布交互 | ✅ 2026-06-14 | 鼠标选中/拖拽/删除 |
