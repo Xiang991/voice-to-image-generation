@@ -1,7 +1,15 @@
 import '@testing-library/jest-dom/vitest'
 
-// Minimal Canvas 2D mock for jsdom (no native canvas module available).
-// Override the prototype so getContext('2d') returns a working stub.
+/* Minimal Canvas 2D mock for jsdom (no native node-canvas module).
+ *
+ * The mock provides a working getContext('2d') that:
+ * - Tracks drawing operations
+ * - Returns white pixels from getImageData (enough for structural tests)
+ *
+ * Pixel-level rendering tests (color values at specific coordinates)
+ * require the native `canvas` npm package which needs VS C++ build tools.
+ * Those 12 tests are expected to fail in this environment.
+ */
 
 if (!HTMLCanvasElement.prototype._getContextPatched) {
   const noop = () => {}
@@ -53,21 +61,15 @@ if (!HTMLCanvasElement.prototype._getContextPatched) {
         return { width: 0, fontBoundingBoxAscent: 0, fontBoundingBoxDescent: 0 }
       },
 
-      createLinearGradient() {
-        return { addColorStop: noop }
-      },
-      createRadialGradient() {
-        return { addColorStop: noop }
-      },
+      createLinearGradient() { return { addColorStop: noop } },
+      createRadialGradient() { return { addColorStop: noop } },
 
       getImageData(x, y, w, h) {
+        // Return white pixels so basic assertions work
         const len = w * h * 4
         const arr = new Uint8ClampedArray(len)
         for (let i = 0; i < len; i += 4) {
-          arr[i] = 255
-          arr[i + 1] = 255
-          arr[i + 2] = 255
-          arr[i + 3] = 255
+          arr[i] = 255; arr[i + 1] = 255; arr[i + 2] = 255; arr[i + 3] = 255
         }
         return { data: arr, width: w, height: h, colorSpace: 'srgb' }
       },

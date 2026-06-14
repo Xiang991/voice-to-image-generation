@@ -25,6 +25,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [voiceMode, setVoiceMode] = useState('idle')
   const [selectedId, setSelectedId] = useState(null)
+  const [gridVisible, setGridVisible] = useState(false)
 
   /* ---- Undo / Redo stacks (refs avoid stale closures) ---- */
   const layersRef = useRef([])
@@ -183,6 +184,7 @@ export default function App() {
 
   const toggleGrid = useCallback(() => {
     canvasRef.current?.toggleGrid()
+    setGridVisible(v => !v)
   }, [])
 
   const handleImportFile = useCallback((e) => {
@@ -398,6 +400,7 @@ export default function App() {
             canUndo={undoCount > 0}
             canRedo={redoCount > 0}
             hasLayers={layers.length > 0}
+            gridVisible={gridVisible}
           />
           <input ref={fileInputRef} type="file" accept=".json"
             style={{ display: 'none' }} onChange={handleImportFile} />
