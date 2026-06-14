@@ -405,6 +405,11 @@ const Canvas = forwardRef(function Canvas({ width = 800, height = 600, onLayersC
     isGridVisible() {
       return showGridRef.current
     },
+    waitForRender() {
+      return new Promise(resolve => {
+        requestAnimationFrame(() => setTimeout(resolve, 100))
+      })
+    },
   }))
 
   return (

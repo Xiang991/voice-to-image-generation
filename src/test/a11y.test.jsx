@@ -12,7 +12,15 @@ vi.mock('../components/Canvas.jsx', () => ({
   default: (() => {
     const React = require('react')
     return React.forwardRef((props, ref) => {
-      React.useImperativeHandle(ref, () => ({ setLayers: vi.fn() }), [])
+      React.useImperativeHandle(ref, () => ({
+        setLayers: vi.fn(),
+        deleteSelected: vi.fn(),
+        toDataURL: vi.fn(() => 'data:image/png;base64,'),
+        waitForRender: vi.fn(() => Promise.resolve()),
+        toggleGrid: vi.fn(),
+        isGridVisible: vi.fn(() => false),
+        getSelectedId: vi.fn(() => null),
+      }), [])
       return React.createElement('canvas', {
         'data-testid': 'mock-canvas',
         'aria-label': '绘图画布',

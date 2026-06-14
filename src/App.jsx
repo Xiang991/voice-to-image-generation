@@ -213,6 +213,26 @@ export default function App() {
     e.target.value = ''
   }, [takeSnapshot])
 
+  /* ---- Keyboard shortcuts ---- */
+
+  useEffect(() => {
+    const handler = (e) => {
+      const ctrl = e.ctrlKey || e.metaKey
+      if (ctrl && e.key === 'z') {
+        e.preventDefault()
+        executeLocal('undo')
+      } else if (ctrl && e.key === 'y') {
+        e.preventDefault()
+        executeLocal('redo')
+      } else if (ctrl && e.key === 's') {
+        e.preventDefault()
+        exportPng()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [executeLocal, exportPng])
+
   /* ---- LLM command handler ---- */
 
   const handleCommand = useCallback(async (text) => {
@@ -289,6 +309,8 @@ export default function App() {
       ])
       const summary = result.summary || '绘制完成'
       setStatus(summary)
+      // Wait for canvas to finish rendering (esp. async SVGs) before speaking
+      await canvasRef.current?.waitForRender?.()
       speak(summary)
     } catch (err) {
       console.error('Agent error:', err)

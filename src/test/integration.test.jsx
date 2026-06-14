@@ -6,12 +6,20 @@ vi.mock('../services/agent.js', () => ({
   runAgent: vi.fn(),
 }))
 
-// Mock Canvas (Fabric.js requires real DOM)
+// Mock Canvas (requires real DOM which jsdom can't provide Canvas 2D)
 vi.mock('../components/Canvas.jsx', () => ({
   default: (() => {
     const React = require('react')
     return React.forwardRef((props, ref) => {
-      React.useImperativeHandle(ref, () => ({ setLayers: vi.fn() }), [])
+      React.useImperativeHandle(ref, () => ({
+        setLayers: vi.fn(),
+        deleteSelected: vi.fn(),
+        toDataURL: vi.fn(() => 'data:image/png;base64,'),
+        waitForRender: vi.fn(() => Promise.resolve()),
+        toggleGrid: vi.fn(),
+        isGridVisible: vi.fn(() => false),
+        getSelectedId: vi.fn(() => null),
+      }), [])
       return React.createElement('div', { 'data-testid': 'mock-canvas' })
     })
   })(),
