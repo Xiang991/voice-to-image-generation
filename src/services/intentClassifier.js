@@ -32,6 +32,31 @@ const CONTROL_PATTERNS = [
   /结束(绘画|绘图|画图|画画)/,
 ]
 
+// Obvious conversational phrases → chat
+const CHAT_PATTERNS = [
+  /^你/,
+  /你好/,
+  /谢谢/,
+  /再见/,
+  /怎么样/,
+  /是什么/,
+  /为什么/,
+  /怎么/,
+  /可以吗/,
+  /好吗/,
+  /行吗/,
+  /对不对/,
+  /今天/,
+  /天气/,
+  /你是谁/,
+  /叫什么/,
+  /名字/,
+  /干嘛/,
+  /做什么/,
+  /什么用/,
+  /什么功能/,
+]
+
 export function classifyIntent(text) {
   const t = text.trim()
   if (!t) return 'chat'
@@ -44,5 +69,12 @@ export function classifyIntent(text) {
     if (re.test(t)) return 'draw'
   }
 
-  return 'chat'
+  // No explicit draw verb — check if it's obviously chat
+  for (const re of CHAT_PATTERNS) {
+    if (re.test(t)) return 'chat'
+  }
+
+  // Fallback: in a pure voice-drawing app, anything else is a draw command
+  // Covers phrases like "一只小牛", "红色圆", "蓝色正方形", "太阳和云"
+  return 'draw'
 }

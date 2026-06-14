@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import crypto from 'crypto';
 import 'dotenv/config';
 import { getProvider } from './providers.js';
 
@@ -218,6 +219,34 @@ app.post('/api/agent', async (req, res) => {
     res.status(500).json({ status: 'error', summary: '服务器内部错误，请稍后重试' });
   }
 });
+
+// ── 讯飞 IAT WebSocket URL 鉴权签发 ──
+app.get('/api/xunfei/auth', (req, res) => {
+  const apiKey = process.env.XUNFEI_API_KEY
+  const apiSecret = process.env.XUNFEI_API_SECRET
+  const appId = process.env.XUNFEI_APP_ID
+
+  if (!apiKey || !apiSecret || !appId) {
+    return res.status(400).json({
+      status: 'error',
+      summary: '未配置讯飞 Key，请在 server/.env 中设置 XUNFEI_APP_ID, XUNFEI_API_KEY, XUNFEI_API_SECRET',
+    })
+  }
+
+  const host = 'iat-api.xfyun.cn'
+  const path = '/v2/iat'
+  const date = new Date().toUTCString()
+
+  const signatureOrigin = `host: ${host}\ndate: ${date}\nGET ${path} HTTP/1.1`
+  const signature = crypto.createHmac('sha256', apiSecret).update(signatureOrigin).digest('base64')
+
+  const authorizationOrigin = `api_key="${apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`
+  const authorization = Buffer.from(authorizationOrigin).toString('base64')
+
+  const url = `wss://${host}${path}?authorization=${encodeURIComponent(authorization)}&date=${encodeURIComponent(date)}&host=${host}`
+
+  res.json({ url, appId })
+})
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });

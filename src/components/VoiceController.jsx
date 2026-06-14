@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mic, MicOff, Loader2, Lock } from 'lucide-react'
+import { createAsr } from '../services/asr-manager.js'
 
 const SILENCE_MS = 1500
 const END_RE = /结束.{0,1}(绘画|绘图|画图|画画)/
@@ -12,24 +13,15 @@ export default function VoiceController({ onSubmit, disabled, onStateChange }) {
   const [micReady, setMicReady] = useState(false)
   const [permDenied, setPermDenied] = useState(false)
 
-  const recRef = useRef(null)
-  const bootRecRef = useRef(null)
-  const scheduleRestartRef = useRef(null)
+  const asrRef = useRef(null)
   const silenceRef = useRef(null)
   const finalRef = useRef('')
   const deadRef = useRef(false)
-  const restartTimerRef = useRef(null)
-  const hadErrorRef = useRef(false)
-  const lastRestartRef = useRef(0)
-  const retryCountRef = useRef(0)
-  const permWatcherRef = useRef(null)
-  const bootRef = useRef(null)
-  const restartRef = useRef(null)
-  const watchPermRef = useRef(null)
+  const bootAttemptRef = useRef(0)
 
   const onSubmitRef = useRef(onSubmit)
   const disabledRef = useRef(disabled)
-  const modeRef = useRef('idle')
+  const modeRef = useRef(mode)
 
   useEffect(() => { onSubmitRef.current = onSubmit }, [onSubmit])
   useEffect(() => { disabledRef.current = disabled }, [disabled])
@@ -38,195 +30,140 @@ export default function VoiceController({ onSubmit, disabled, onStateChange }) {
     if (onStateChange) onStateChange(mode)
   }, [mode, onStateChange])
 
-  const clearTimers = useCallback(() => {
+  const clearSilence = useCallback(() => {
     if (silenceRef.current) { clearTimeout(silenceRef.current); silenceRef.current = null }
-    if (restartTimerRef.current) { clearTimeout(restartTimerRef.current); restartTimerRef.current = null }
   }, [])
 
-  const stopRec = useCallback(() => {
-    const r = recRef.current
-    if (r) { recRef.current = null; try { r.stop() } catch { /* ignore */ } }
-  }, [])
-
-  // Handles silence timeout — commits text and tries to restart
-  const handleSilence = useCallback(() => {
-    silenceRef.current = null
-    const text = finalRef.current.trim()
-    finalRef.current = ''
-    setTranscript('')
-    if (text) {
-      const em = text.match(END_RE)
-      if (em) {
-        const before = text.slice(0, em.index).trim()
-        if (before) onSubmitRef.current(before)
-        setMode('idle')
-        stopRec()
-        clearTimers()
-        return
-      }
-      onSubmitRef.current(text)
-    }
-    // After submitting, try to restart. bootRec checks disabledRef internally
-    // and will skip if App is still processing (returns for draw intent,
-    // proceeds immediately for chat/control intents because disabled stays false)
-    if (modeRef.current === 'listening' && !deadRef.current) {
-      restartRef.current?.()
-    }
-  }, [stopRec, clearTimers])
-
-  const bootRec = useCallback(() => {
-    if (deadRef.current) return
-    if (modeRef.current === 'idle') return
-    if (disabledRef.current) return
-    hadErrorRef.current = false
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechRecognition) {
-      setError('浏览器不支持语音识别，请使用 Chrome 或 Edge')
+  const commitText = useCallback((text) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    const em = trimmed.match(END_RE)
+    if (em) {
+      const before = trimmed.slice(0, em.index).trim()
+      if (before) onSubmitRef.current(before)
+      setMode('idle')
       return
     }
+    onSubmitRef.current(trimmed)
+  }, [])
 
-    stopRec()
+  // Called when ASR has results
+  const handleResult = useCallback(({ transcript: t, isFinal: f }) => {
+    if (deadRef.current) return
+    clearSilence()
+    finalRef.current = f ? t : finalRef.current
+    setTranscript(t)
+  }, [clearSilence])
 
-    const rec = new SpeechRecognition()
-    rec.continuous = false
-    rec.interimResults = true
-    rec.lang = 'zh-CN'
-
-    rec.onresult = (e) => {
-      if (deadRef.current || recRef.current !== rec) return
-      clearTimers()
-
-      let interim = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i]
-        if (r.isFinal) finalRef.current += r[0].transcript
-        else interim += r[0].transcript
-      }
-      setTranscript(finalRef.current + interim)
-    }
-
-    rec.onspeechend = () => {
-      if (deadRef.current || recRef.current !== rec) return
-      if (finalRef.current.trim()) {
-        silenceRef.current = setTimeout(handleSilence, SILENCE_MS)
-      }
-    }
-
-    rec.onerror = (e) => {
-      if (deadRef.current || recRef.current !== rec) return
-      if (e.error === 'not-allowed') {
-        hadErrorRef.current = true
-        setError('请在浏览器设置中允许麦克风权限，然后刷新页面')
-        setMicReady(false)
-        setPermDenied(true)
-        watchPermRef.current?.()
-      } else if (e.error === 'aborted') {
-        // Normal — happens when stopRec() is called or browser kills idle rec
-      } else {
-        // Transient error (network, no-speech, etc.) — try to restart
-        setError('语音识别出错: ' + e.error + '，自动重试中...')
-        if (modeRef.current === 'listening') restartRef.current?.()
-      }
-    }
-
-    rec.onend = () => {
-      if (deadRef.current) return
-      if (recRef.current === rec) {
-        recRef.current = null
-        if (hadErrorRef.current) return
-        if (finalRef.current.trim() && !silenceRef.current) {
-          // Text collected but silence timer not started yet → start it
-          silenceRef.current = setTimeout(handleSilence, SILENCE_MS)
-        } else if (!finalRef.current.trim() && modeRef.current === 'listening' && !disabledRef.current) {
-          // Recognition ended with no text → restart
-          restartRef.current?.()
+  // Called when ASR detects end of speech
+  const handleAsrEnd = useCallback(() => {
+    if (deadRef.current) return
+    const text = finalRef.current.trim()
+    if (text) {
+      silenceRef.current = setTimeout(() => {
+        silenceRef.current = null
+        const t = finalRef.current.trim()
+        finalRef.current = ''
+        setTranscript('')
+        commitText(t)
+        // Restart after submit if still in listening mode
+        if (modeRef.current === 'listening' && !disabledRef.current) {
+          bootAttemptRef.current++
+          setTimeout(() => doBoot(), 150)
         }
-      }
+      }, SILENCE_MS)
+    } else if (modeRef.current === 'listening' && !disabledRef.current) {
+      // No text yet, restart right away
+      bootAttemptRef.current++
+      setTimeout(() => doBoot(), 150)
     }
+  }, [clearSilence, commitText])
 
-    recRef.current = rec
-    try {
-      rec.start()
-      retryCountRef.current = 0
-      setMicReady(true)
-      setError(null)
-      setPermDenied(false)
-    } catch (e) {
-      setError('启动语音识别失败: ' + (e.message || e))
-      if (modeRef.current === 'listening') restartRef.current?.()
+  const handleAsrError = useCallback(({ message }) => {
+    if (deadRef.current) return
+    // Permanent errors — show to user, don't retry
+    if (/权限|permission|not.allowed|禁止|拒绝/i.test(message)) {
+      setPermDenied(true)
+      setError(message)
+      setMicReady(false)
+      return
     }
-  }, [stopRec, clearTimers, handleSilence])
-
-  const doRestart = useCallback(() => {
-    if (deadRef.current || hadErrorRef.current) return
-    if (retryCountRef.current >= 5) {
-      setError('语音识别多次失败，请检查麦克风后重新点击开始')
+    if (/未配置|config|Key|API|密钥|鉴权/i.test(message)) {
+      setError(message)
       setMode('idle')
       setMicReady(false)
       return
     }
-    const now = Date.now()
-    if (now - lastRestartRef.current < 300) return
-    lastRestartRef.current = now
-    retryCountRef.current++
-    clearTimers()
-    stopRec()
-    restartTimerRef.current = setTimeout(() => bootRef.current?.(), 200)
-  }, [clearTimers, stopRec])
-
-  const watchPermission = useCallback(() => {
-    if (!navigator.permissions) return
-    navigator.permissions.query({ name: 'microphone' }).then((perm) => {
-      if (deadRef.current) return
-      permWatcherRef.current = perm
-      perm.onchange = () => {
-        if (perm.state === 'granted') {
-          setPermDenied(false)
-          hadErrorRef.current = false
-          lastRestartRef.current = 0
-          setError(null)
-          if (modeRef.current !== 'idle') bootRef.current?.()
-        } else if (perm.state === 'denied') {
-          setPermDenied(true)
-        }
-      }
-    }).catch(() => {})
+    // Transient errors — show + retry
+    setError(message)
+    if (modeRef.current === 'listening') {
+      bootAttemptRef.current++
+      setTimeout(() => doBoot(), 300)
+    }
   }, [])
 
-  // Sync refs — these run once per render, keeping refs always current
-  useEffect(() => { bootRef.current = bootRec }, [bootRec])
-  useEffect(() => { restartRef.current = doRestart }, [doRestart])
-  useEffect(() => { watchPermRef.current = watchPermission }, [watchPermission])
+  const createAndBoot = useCallback(async () => {
+    if (deadRef.current) return
+    if (disabledRef.current) return
+    if (bootAttemptRef.current > 5) {
+      setError('语音识别多次失败，请检查后重新点击开始')
+      setMode('idle')
+      setMicReady(false)
+      return
+    }
 
+    // Destroy previous
+    try { asrRef.current?.destroy() } catch {}
+
+    try {
+      const asr = await createAsr()
+      if (deadRef.current) { asr.destroy(); return }
+      asr.onResult(handleResult)
+      asr.onError(handleAsrError)
+      asr.onEnd(handleAsrEnd)
+      asr.start()
+      asrRef.current = asr
+      setMicReady(true)
+      setError(null)
+      setPermDenied(false)
+    } catch (err) {
+      if (!deadRef.current) {
+        setError(err.message || '语音识别初始化失败')
+        if (modeRef.current === 'listening') {
+          bootAttemptRef.current++
+          setTimeout(() => doBoot(), 500)
+        }
+      }
+    }
+  }, [handleResult, handleAsrError, handleAsrEnd])
+
+  // Stable ref to doBoot
+  const doBootRef = useRef(createAndBoot)
+  useEffect(() => { doBootRef.current = createAndBoot }, [createAndBoot])
+  const doBoot = useCallback(() => doBootRef.current(), [])
+
+  // Start listening
   const startListening = useCallback(() => {
     setMode('listening')
     setError(null)
-    hadErrorRef.current = false
-    lastRestartRef.current = 0
-    retryCountRef.current = 0
+    bootAttemptRef.current = 0
   }, [])
 
-  // Single effect: boot when entering listening mode or resuming after processing
+  // Boot when entering listening mode
   useEffect(() => {
     if (mode === 'listening' && !disabled) {
-      hadErrorRef.current = false
-      lastRestartRef.current = 0
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      bootRec()
+      bootAttemptRef.current = 0
+      createAndBoot()
     }
-  }, [mode, disabled, bootRec])
+  }, [mode, disabled, createAndBoot])
 
+  // Cleanup on unmount
   useEffect(() => {
     deadRef.current = false
     return () => {
       deadRef.current = true
-      clearTimers()
-      stopRec()
-      if (permWatcherRef.current) {
-        permWatcherRef.current.onchange = null
-        permWatcherRef.current = null
-      }
+      clearSilence()
+      try { asrRef.current?.destroy() } catch {}
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
