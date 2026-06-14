@@ -20,6 +20,11 @@ export default function App() {
   const [status, setStatus] = useState('就绪')
   const [loading, setLoading] = useState(false)
   const [voiceMode, setVoiceMode] = useState('idle')
+  const [selectedId, setSelectedId] = useState(null)
+
+  const handleLayersChange = useCallback((newLayers) => {
+    setLayers(newLayers)
+  }, [])
 
   useEffect(() => {
     canvasRef.current?.setLayers(layers)
@@ -39,18 +44,27 @@ export default function App() {
         // TODO: 多步撤销 + redo 栈 — 当前仅支持撤销最后一步
         return prev.slice(0, -1)
       })
+      setSelectedId(null)
       setHistory((prev) => [
         { id: nextId++, text: '撤销', status: 'success', timestamp: new Date() },
         ...prev,
       ])
     } else if (action === 'clear') {
       setLayers([])
+      setSelectedId(null)
       setStatus('画布已清空')
       speak('画布已清空')
       setHistory((prev) => [
         { id: nextId++, text: '清空', status: 'success', timestamp: new Date() },
         ...prev,
       ])
+    } else if (action === 'deleteSelected') {
+      if (canvasRef.current?.deleteSelected()) {
+        setHistory((prev) => [
+          { id: nextId++, text: '删除选中', status: 'success', timestamp: new Date() },
+          ...prev,
+        ])
+      }
     }
   }, [])
 
@@ -180,12 +194,15 @@ export default function App() {
 
       <main className="app-main">
         <div className="canvas-area">
-          <Canvas ref={canvasRef} width={CONFIG.canvasWidth} height={CONFIG.canvasHeight} />
+          <Canvas ref={canvasRef} width={CONFIG.canvasWidth} height={CONFIG.canvasHeight}
+            onLayersChange={handleLayersChange} onSelectChange={setSelectedId} />
           <QuickBar
             onUndo={() => executeLocal('undo')}
             onClear={() => executeLocal('clear')}
+            onDelete={() => executeLocal('deleteSelected')}
             disabled={loading}
             visible={drawingActive && layers.length > 0}
+            hasSelection={selectedId !== null}
           />
         </div>
 

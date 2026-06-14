@@ -113,6 +113,11 @@ body::before {
   background: var(--color-surface);
 }
 
+.canvas-area canvas:focus {
+  outline: none;
+  box-shadow: var(--shadow-canvas), 0 0 0 2px var(--color-accent-dim);
+}
+
 .side-panel {
   flex: 1;
   min-width: 260px;

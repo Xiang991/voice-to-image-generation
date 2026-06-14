@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Undo2, Trash2 } from 'lucide-react'
+import { Undo2, Trash2, XSquare } from 'lucide-react'
 
-export default function QuickBar({ onUndo, onClear, disabled, visible }) {
+export default function QuickBar({ onUndo, onClear, onDelete, disabled, visible, hasSelection }) {
   return (
     <AnimatePresence>
       {visible && (
@@ -23,6 +23,18 @@ export default function QuickBar({ onUndo, onClear, disabled, visible }) {
           >
             <Undo2 size={15} strokeWidth={2} />
             <span className="qb-label">撤销</span>
+          </motion.button>
+          <motion.button
+            className="qb-btn qb-danger"
+            onClick={onDelete}
+            disabled={disabled || !hasSelection}
+            type="button"
+            title="删除选中的图形"
+            whileHover={hasSelection ? { scale: 1.04, y: -1 } : {}}
+            whileTap={hasSelection ? { scale: 0.96 } : {}}
+          >
+            <XSquare size={15} strokeWidth={2} />
+            <span className="qb-label">删除</span>
           </motion.button>
           <motion.button
             className="qb-btn qb-danger"
