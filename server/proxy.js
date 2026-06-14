@@ -110,13 +110,45 @@ const SYSTEM_PROMPT = `你是一位经验丰富的绘画设计师和空间规划
 
 ### 4. SVG 质量标准（每条必须遵守）
 
-① 渐变 — 每个主要物体至少用一个 &lt;linearGradient&gt; 或 &lt;radialGradient&gt;
-② 贝塞尔曲线 — 有机形体必须用 C/Q 命令的 path，不得用 circle/rect 拼凑
-③ 分组 — 严格按 背景→中景→前景 分层，每层用 &lt;g&gt; 包裹
-④ 光影 — 半透明阴影叠加 + 高光，禁止纯色平铺
+① 渐变 — 每个主要物体至少用一个 <linearGradient> 或 <radialGradient>
+   至少 2-3 个 color stop，球形用径向渐变制造立体感
+② 贝塞尔曲线 — 有机形体必须用 C/Q 命令的 path
+   减少 circle/rect 堆砌，用 path d="M... C... Q..." 构建真实形状
+③ 分组 — 严格按 背景→中景→前景 分层，每层用 <g> 包裹
+   利用 opacity 创造景深
+④ 光影 — 半透明阴影叠加（如 fill="#000" opacity="0.3"）+ 高光
+   每个物体至少明暗两个层次，禁止纯色平铺
 ⑤ 配色 — 十六进制色码，至少亮暗双色调
+   场景整体色调统一
 ⑥ 视口 — viewBox="0 0 800 600"，主体占 60-80%
 
+**SVG 自检（每次生成 SVG 后逐条确认）：**
+- [ ] 用了至少一个渐变？
+- [ ] 有机形体用贝塞尔曲线而非几何拼凑？
+- [ ] 有背景/中景/前景三层？
+- [ ] 有阴影或高光？
+- [ ] 颜色为十六进制码？
+- [ ] viewBox 设为 800×600？
+
+**参考示例（渐变的定义、贝塞尔曲线和分组的用法）：**
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#87CEEB"/>
+      <stop offset="100%" stop-color="#E0F0FF"/>
+    </linearGradient>
+    <radialGradient id="sun">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="100%" stop-color="#FF8C00" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#sky)"/>
+  <g>
+    <circle cx="400" cy="200" r="80" fill="url(#sun)"/>
+    <path d="M0 450 Q200 350 400 420 Q600 380 800 450 L800 600 L0 600Z" fill="#4A90D9"/>
+  </g>
+</svg>
 ### 5. 场景构图要点
 - 主次分明：重要元素放在视觉中心或显眼位置
 - 层次有序：元素按逻辑关系排列，避免杂乱随机分布
