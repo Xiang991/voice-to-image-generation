@@ -113,6 +113,11 @@ body::before {
   background: var(--color-surface);
 }
 
+.canvas-area canvas:focus {
+  outline: none;
+  box-shadow: var(--shadow-canvas), 0 0 0 2px var(--color-accent-dim);
+}
+
 .side-panel {
   flex: 1;
   min-width: 260px;
@@ -483,6 +488,64 @@ body::before {
   font-variant-numeric: tabular-nums;
 }
 
+/* ===== Message Log ===== */
+.msg-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 32px 16px;
+  justify-content: center;
+  letter-spacing: 0.3px;
+}
+
+.msg-list {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.msg-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.msg-item:last-child {
+  border-bottom: none;
+}
+
+.msg-text {
+  flex: 1;
+  font-size: 14px;
+  color: var(--color-ink);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.msg-time {
+  color: var(--color-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+/* Also apply scrollbar styling to msg-list */
+.msg-list::-webkit-scrollbar {
+  width: 4px;
+}
+.msg-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.msg-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 3px;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 900px) {
   .app { padding: 16px 12px; }
@@ -500,6 +563,53 @@ body::before {
     height: auto;
   }
   .app-header h1 { font-size: 18px; }
+}
+
+/* ===== Error Boundary ===== */
+.error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 800px;
+  height: 600px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-canvas);
+}
+
+.error-boundary-box {
+  text-align: center;
+  padding: 40px;
+}
+
+.error-boundary-box h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-error);
+  margin-bottom: 8px;
+}
+
+.error-boundary-detail {
+  font-size: 13px;
+  color: var(--color-secondary);
+  margin-bottom: 20px;
+}
+
+.error-boundary-btn {
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 550;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.error-boundary-btn:hover {
+  background: var(--color-accent-deep);
+  transform: translateY(-1px);
 }
 
 /* ===== Scrollbar ===== */
