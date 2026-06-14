@@ -2,10 +2,10 @@
 
 ## 项目概述
 
-纯语音控制的绘图工具。用户通过语音指令完成绘图创作。
+纯语音控制的 AI 绘画工具。用户通过语音指令完成绘图创作。
 
-**架构：** 厚前端 + 薄代理 + 纯云 LLM
-**核心链路：** 语音识别 → 厚前端解析 → 薄代理转发 → LLM 输出 JSON → 前端状态判断 → Canvas 渲染
+**架构：** 厚前端 + 薄代理 + 智能 LLM
+**核心链路：** 语音识别 → 厚前端解析 → 薄代理转发 → LLM 以"绘画设计师"角色输出 JSON → 前端状态判断 → Canvas 渲染
 
 ## 快速开始
 
@@ -16,7 +16,7 @@ cd server && npm install && node proxy.js
 
 # 终端 2：启动前端
 npm run dev
-# → http://localhost:5173
+# → http://localhost:5173/voice-to-image-generation/
 ```
 
 ## 技术栈
@@ -25,10 +25,11 @@ npm run dev
 |------|------|
 | 前端框架 | React 19 + Vite 8 |
 | 语音识别 | Web Speech API |
-| 画布渲染 | Fabric.js 7 |
-| LLM | DeepSeek V4 Flash（多 Provider 可切换：Qwen/Kimi） |
+| 画布渲染 | 原生 Canvas 2D API |
+| LLM | DeepSeek V4 Flash（多 Provider 可切换：Qwen/Kimi/GLM） |
 | LLM 代理层 | Node Express + providers.js 注册表 |
 | 坐标校验 | Server-side validateActions() 坐标钳制+最小尺寸 |
+| SVG 渲染 | Blob → Image → canvas（支持全部 SVG 特性） |
 | 基准测试 | server/benchmark/ — 16 用例多维评分 |
 
 ## 目录结构
@@ -37,20 +38,27 @@ npm run dev
 voice-to-image-generation/
 ├── src/                          # React 前端源码
 │   ├── components/
-│   │   ├── VoiceController.jsx   语音输入 + 关键词检测 + 生命周期管理
-│   │   ├── Canvas.jsx            Fabric.js 画布渲染
-│   │   └── History.jsx           指令历史
+│   │   ├── VoiceController.jsx   语音输入 + 生命周期管理
+│   │   ├── Canvas.jsx            原生 Canvas 2D 渲染 + 鼠标交互
+│   │   ├── VoiceStatusBar.jsx    状态指示器
+│   │   ├── QuickBar.jsx          悬浮操作栏
+│   │   ├── History.jsx           指令历史
+│   │   ├── MessageLog.jsx        系统消息日志
+│   │   └── ErrorBoundary.jsx     错误边界
 │   ├── services/
 │   │   ├── agent.js              代理客户端（调后端 API）
-│   │   ├── tts.js                已禁用（空函数）
-│   │   └── canvasSummary.js      画布状态摘要（含 zone 空间区域）
+│   │   ├── tts.js                语音合成封装
+│   │   ├── intentClassifier.js   意图分类（draw/control/chat）
+│   │   ├── canvasSummary.js      画布状态摘要（含 zone 空间区域）
+│   │   ├── storage.js            localStorage 持久化
+│   │   └── hints.js              动态提示生成
 │   ├── App.jsx                   根组件 + status 分支判断
 │   ├── App.css                   样式
 │   ├── config.js                 配置
 │   └── main.jsx                  React 入口
 ├── server/                       # Express 代理后端
-│   ├── proxy.js                  加 Key 转发（多 Provider 路由）+ validateActions() 坐标校验
-│   ├── providers.js              模型注册表（DeepSeek/Qwen/Kimi）
+│   ├── proxy.js                  加 Key 转发 + 系统提示词 + validateActions()
+│   ├── providers.js              模型注册表（DeepSeek/Qwen/GLM/Kimi）
 │   ├── .env                      环境变量（API Key，已 gitignore）
 │   ├── benchmark/                基准测试框架（16 用例 × 多维评分）
 │   │   ├── test-cases.js
@@ -60,7 +68,8 @@ voice-to-image-generation/
 │   │   └── results/              （生成结果，已 gitignore）
 │   └── package.json              依赖
 ├── docs/
-│   └── design.md                 设计文档（交付物）
+│   ├── design.md                 设计文档（交付物）
+│   └── benchmark-selection.md    基准测试选型报告
 ├── .harness/
 │   ├── design.md                 设计方案
 │   └── progress.json             进度跟踪
@@ -72,7 +81,7 @@ voice-to-image-generation/
 └── CLAUDE.md                     项目规范（本文件）
 ```
 
-## 架构说明：厚前端 + 薄代理 + 纯云 LLM
+## 架构说明
 
 ```
 用户 → 厚前端（浏览器）
@@ -84,20 +93,23 @@ voice-to-image-generation/
   └── 存储画布状态（canvasSummary.js，含 zone 区域描述）
 
 厚前端 → 薄代理（Express）
-  └── 仅加 Key 透传，无分支判断
+  ├── 注入系统提示词（绘画设计师角色）
+  ├── 坐标校验 validateActions()
+  └── 透传，无业务判断
 
 薄代理 → 云 LLM（DeepSeek）
-  └── 理解自然语言 → 输出带 status 标签的结构化 JSON
+  ├── 以"绘画设计师"角色理解意图/规划构图/设计画面
+  └── 输出带 status 标签的结构化 JSON
 ```
 
 ## 当前状态
 
-- **阶段：** ✅ 已完成（基准测试阶段通过）
-- **进度：** 13/13 步完成，后经绘画质量专项改进
-- **里程碑：** Tier 1 骨架 ✓ | 语音输入 ✓ | 薄代理 ✓ | 全栈闭环 ✓
+- **阶段：** ✅ 已完成
+- **进度：** 13/13 步完成，绘画质量专项改进已完成
+- **里程碑：** Tier 1 骨架 ✓ | 语音输入 ✓ | 薄代理 ✓ | 全栈闭环 ✓ | SVG 质感升级 ✓
 - **模型选型：** DeepSeek V4 Flash（已验证 Qwen/Kimi 准确率等价但延迟劣势）
 - **基准测试：** 四模型 95.5% 同分，延迟差距 265ms vs 3.6s vs 14s，详见 `docs/benchmark-selection.md`
-- **绘画质量改进（2026-06-14）：** 系统提示词 3×3 坐标网格 + 尺寸约定 + 碰撞规避 + SVG 质量规则，proxy.js 后处理 validateActions() 坐标钳制，canvasSummary 增强 zone 区域描述
+- **系统提示词（2026-06-14）：** 从"格式转换器"升级为"绘画设计师"——四步设计流程（理解意图→构图规划→确定表达→细化参数）+ SVG 六大技法（渐变/贝塞尔/分层/光影/配色/视口）+ few-shot 高质量示例
 - **说明：** 项目所有步骤已完成并通过验收，详见 `.harness/progress.json`
 
 ## 工作规范
