@@ -73,9 +73,8 @@ describe('App integration — 完整语音→绘图链路', () => {
         expect(screen.getByText('画了一个红色圆')).toBeInTheDocument()
       })
 
-      // 历史记录中应有该项（guidance chip 也包含"画红色圆"）
-      const matches = screen.getAllByText('画红色圆')
-      expect(matches.length).toBeGreaterThanOrEqual(2) // chip + history
+      // 历史记录中应有该项（guidance chips 为动态，不硬编码）
+      expect(screen.getByText('画红色圆')).toBeInTheDocument()
     })
 
     it('agent 返回多个 actions → 全部执行', async () => {
@@ -150,9 +149,8 @@ describe('App integration — 完整语音→绘图链路', () => {
         expect(screen.getByText('抱歉，出了点问题，请再试一次')).toBeInTheDocument()
       })
 
-      // "画一棵树" 同时出现在 guidance chip 和 history 中
-      const matches = screen.getAllByText('画一棵树')
-      expect(matches.length).toBeGreaterThanOrEqual(2)
+      // 历史记录中应有该项（guidance chips 为动态，不硬编码）
+      expect(screen.getByText('画一棵树')).toBeInTheDocument()
       expect(container.querySelector('.history-error')).toBeInTheDocument()
     })
   })

@@ -10,6 +10,7 @@ import { generateCanvasSummary } from './services/canvasSummary.js'
 import { classifyIntent } from './services/intentClassifier.js'
 import { speak } from './services/tts.js'
 import { saveLayers, loadLayers, clearLayers } from './services/storage.js'
+import { generateHints } from './services/hints.js'
 import { CONFIG } from './config.js'
 
 let nextId = 1
@@ -310,8 +311,8 @@ export default function App() {
   else if (voiceMode === 'listening') statusMode = 'listening'
   else if (voiceMode === 'idle') statusMode = 'idle'
 
-  const hints = drawingActive && !loading
-    ? ['画红色圆', '画一只小猫', '画蓝色矩形', '画一棵树', '清空', '画黄色太阳']
+  const hints = drawingActive
+    ? generateHints(layers, loading)
     : ['画红色圆', '画一只小狗', '画蓝色矩形', '画玫瑰花', '画房子和树', '画一条线']
 
   const showBar = drawingActive && (layers.length > 0 || undoCount > 0)
