@@ -27,19 +27,6 @@ export default function App() {
   const [gridVisible, setGridVisible] = useState(false)
   const [messages, setMessages] = useState([])
 
-  /* ---- Cancel ongoing request ---- */
-  const abortRef = useRef(null)
-
-  const cancelCommand = useCallback(() => {
-    if (abortRef.current) {
-      abortRef.current.abort()
-      abortRef.current = null
-    }
-    setLoading(false)
-    setStatus('已取消')
-    addMessage('已取消')
-  }, [addMessage])
-
   /* ---- Undo / Redo stacks (refs avoid stale closures) ---- */
   const layersRef = useRef([])
   const undoStackRef = useRef([])
@@ -63,6 +50,19 @@ export default function App() {
       ...prev,
     ])
   }, [])
+
+  /* ---- Cancel ongoing request ---- */
+  const abortRef = useRef(null)
+
+  const cancelCommand = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
+    }
+    setLoading(false)
+    setStatus('已取消')
+    addMessage('已取消')
+  }, [addMessage])
 
   /* ---- Canvas sync ---- */
 
