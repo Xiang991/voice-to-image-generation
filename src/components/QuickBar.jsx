@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Undo2, Trash2, XSquare } from 'lucide-react'
+import { Undo2, Redo2, Trash2, XSquare } from 'lucide-react'
 
-export default function QuickBar({ onUndo, onClear, onDelete, disabled, visible, hasSelection }) {
+export default function QuickBar({ onUndo, onRedo, onClear, onDelete, disabled, visible, hasSelection, canUndo, canRedo }) {
   return (
     <AnimatePresence>
       {visible && (
@@ -15,14 +15,26 @@ export default function QuickBar({ onUndo, onClear, onDelete, disabled, visible,
           <motion.button
             className="qb-btn"
             onClick={onUndo}
-            disabled={disabled}
+            disabled={disabled || !canUndo}
             type="button"
-            title="撤销上一步"
-            whileHover={{ scale: 1.04, y: -1 }}
-            whileTap={{ scale: 0.96 }}
+            title="撤销"
+            whileHover={canUndo ? { scale: 1.04, y: -1 } : {}}
+            whileTap={canUndo ? { scale: 0.96 } : {}}
           >
             <Undo2 size={15} strokeWidth={2} />
             <span className="qb-label">撤销</span>
+          </motion.button>
+          <motion.button
+            className="qb-btn"
+            onClick={onRedo}
+            disabled={disabled || !canRedo}
+            type="button"
+            title="重做"
+            whileHover={canRedo ? { scale: 1.04, y: -1 } : {}}
+            whileTap={canRedo ? { scale: 0.96 } : {}}
+          >
+            <Redo2 size={15} strokeWidth={2} />
+            <span className="qb-label">重做</span>
           </motion.button>
           <motion.button
             className="qb-btn qb-danger"

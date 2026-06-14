@@ -12,6 +12,7 @@ import { speak } from './services/tts.js'
 import { CONFIG } from './config.js'
 
 let nextId = 1
+const MAX_UNDO = 50
 
 export default function App() {
   const canvasRef = useRef(null)
@@ -22,42 +23,91 @@ export default function App() {
   const [voiceMode, setVoiceMode] = useState('idle')
   const [selectedId, setSelectedId] = useState(null)
 
-  const handleLayersChange = useCallback((newLayers) => {
-    setLayers(newLayers)
+  /* ---- Undo / Redo stacks (refs avoid stale closures) ---- */
+  const layersRef = useRef([])
+  const undoStackRef = useRef([])
+  const redoStackRef = useRef([])
+  const [undoCount, setUndoCount] = useState(0)
+  const [redoCount, setRedoCount] = useState(0)
+
+  useEffect(() => { layersRef.current = layers }, [layers])
+
+  const takeSnapshot = useCallback(() => {
+    undoStackRef.current.push(JSON.parse(JSON.stringify(layersRef.current)))
+    if (undoStackRef.current.length > MAX_UNDO) undoStackRef.current.shift()
+    redoStackRef.current = []
+    setUndoCount(undoStackRef.current.length)
+    setRedoCount(0)
   }, [])
+
+  /* ---- Canvas sync ---- */
 
   useEffect(() => {
     canvasRef.current?.setLayers(layers)
   }, [layers])
 
+  const handleLayersChange = useCallback((newLayers) => {
+    takeSnapshot()
+    setLayers(newLayers)
+  }, [takeSnapshot])
+
+  /* ---- Local actions (undo / redo / clear / delete) ---- */
+
   const executeLocal = useCallback((action) => {
     if (action === 'undo') {
-      setLayers((prev) => {
-        if (prev.length === 0) {
-          const msg = '没有可撤销的操作'
-          setStatus(msg)
-          speak(msg)
-          return prev
-        }
-        setStatus('已撤销')
-        speak('已撤销')
-        // TODO: 多步撤销 + redo 栈 — 当前仅支持撤销最后一步
-        return prev.slice(0, -1)
-      })
+      if (undoStackRef.current.length === 0) {
+        const msg = '没有可撤销的操作'
+        setStatus(msg)
+        speak(msg)
+        return
+      }
+      const restored = undoStackRef.current.pop()
+      redoStackRef.current.push(JSON.parse(JSON.stringify(layersRef.current)))
+      setLayers(restored)
+      setUndoCount(undoStackRef.current.length)
+      setRedoCount(redoStackRef.current.length)
       setSelectedId(null)
       setHistory((prev) => [
         { id: nextId++, text: '撤销', status: 'success', timestamp: new Date() },
         ...prev,
       ])
+      setStatus('已撤销')
+      speak('已撤销')
+    } else if (action === 'redo') {
+      if (redoStackRef.current.length === 0) {
+        const msg = '没有可重做的操作'
+        setStatus(msg)
+        speak(msg)
+        return
+      }
+      const restored = redoStackRef.current.pop()
+      undoStackRef.current.push(JSON.parse(JSON.stringify(layersRef.current)))
+      setLayers(restored)
+      setUndoCount(undoStackRef.current.length)
+      setRedoCount(redoStackRef.current.length)
+      setSelectedId(null)
+      setHistory((prev) => [
+        { id: nextId++, text: '重做', status: 'success', timestamp: new Date() },
+        ...prev,
+      ])
+      setStatus('已重做')
+      speak('已重做')
     } else if (action === 'clear') {
+      if (layersRef.current.length === 0) {
+        const msg = '画布已经是空的'
+        setStatus(msg)
+        speak(msg)
+        return
+      }
+      takeSnapshot()
       setLayers([])
       setSelectedId(null)
-      setStatus('画布已清空')
-      speak('画布已清空')
       setHistory((prev) => [
         { id: nextId++, text: '清空', status: 'success', timestamp: new Date() },
         ...prev,
       ])
+      setStatus('画布已清空')
+      speak('画布已清空')
     } else if (action === 'deleteSelected') {
       if (canvasRef.current?.deleteSelected()) {
         setHistory((prev) => [
@@ -66,7 +116,9 @@ export default function App() {
         ])
       }
     }
-  }, [])
+  }, [takeSnapshot])
+
+  /* ---- LLM command handler ---- */
 
   const handleCommand = useCallback(async (text) => {
     const intent = classifyIntent(text)
@@ -85,6 +137,8 @@ export default function App() {
     if (intent === 'control') {
       if (/撤销|回退|后退|撤消/.test(text)) {
         executeLocal('undo')
+      } else if (/重做|还原/.test(text)) {
+        executeLocal('redo')
       } else if (/结束(绘画|绘图|画图|画画)/.test(text)) {
         return
       } else {
@@ -95,6 +149,7 @@ export default function App() {
 
     setLoading(true)
     setStatus('思考中...')
+    takeSnapshot()
 
     try {
       const canvasSummary = layers.length > 0 ? generateCanvasSummary(layers) : []
@@ -141,7 +196,7 @@ export default function App() {
     } finally {
       setLoading(false)
     }
-  }, [layers, executeLocal])
+  }, [layers, executeLocal, takeSnapshot])
 
   const drawingActive = voiceMode === 'listening'
 
@@ -153,6 +208,8 @@ export default function App() {
   const hints = drawingActive && !loading
     ? ['画红色圆', '画一只小猫', '画蓝色矩形', '画一棵树', '清空', '画黄色太阳']
     : ['画红色圆', '画一只小狗', '画蓝色矩形', '画玫瑰花', '画房子和树', '画一条线']
+
+  const showBar = drawingActive && (layers.length > 0 || undoCount > 0)
 
   return (
     <div className="app">
@@ -198,11 +255,14 @@ export default function App() {
             onLayersChange={handleLayersChange} onSelectChange={setSelectedId} />
           <QuickBar
             onUndo={() => executeLocal('undo')}
+            onRedo={() => executeLocal('redo')}
             onClear={() => executeLocal('clear')}
             onDelete={() => executeLocal('deleteSelected')}
             disabled={loading}
-            visible={drawingActive && layers.length > 0}
+            visible={showBar}
             hasSelection={selectedId !== null}
+            canUndo={undoCount > 0}
+            canRedo={redoCount > 0}
           />
         </div>
 

@@ -110,23 +110,25 @@ describe('History', () => {
 describe('QuickBar', () => {
   it('visible=false → 不渲染任何内容', () => {
     const { container } = render(
-      <QuickBar onUndo={vi.fn()} onClear={vi.fn()} disabled={false} visible={false} />
+      <QuickBar onUndo={vi.fn()} onRedo={vi.fn()} onClear={vi.fn()} onDelete={vi.fn()} disabled={false} visible={false} />
     )
     expect(container.querySelector('.quick-bar')).not.toBeInTheDocument()
   })
 
   it('visible=true → 渲染撤销和清空按钮', () => {
     render(
-      <QuickBar onUndo={vi.fn()} onClear={vi.fn()} disabled={false} visible={true} />
+      <QuickBar onUndo={vi.fn()} onRedo={vi.fn()} onClear={vi.fn()} onDelete={vi.fn()} disabled={false} visible={true} />
     )
     expect(screen.getByText('撤销')).toBeInTheDocument()
+    expect(screen.getByText('重做')).toBeInTheDocument()
+    expect(screen.getByText('删除')).toBeInTheDocument()
     expect(screen.getByText('清空')).toBeInTheDocument()
   })
 
   it('点击撤销 → 触发 onUndo', () => {
     const onUndo = vi.fn()
     render(
-      <QuickBar onUndo={onUndo} onClear={vi.fn()} disabled={false} visible={true} />
+      <QuickBar onUndo={onUndo} onRedo={vi.fn()} onClear={vi.fn()} onDelete={vi.fn()} disabled={false} visible={true} canUndo={true} />
     )
     fireEvent.click(screen.getByText('撤销'))
     expect(onUndo).toHaveBeenCalledOnce()
@@ -135,7 +137,7 @@ describe('QuickBar', () => {
   it('点击清空 → 触发 onClear', () => {
     const onClear = vi.fn()
     render(
-      <QuickBar onUndo={vi.fn()} onClear={onClear} disabled={false} visible={true} />
+      <QuickBar onUndo={vi.fn()} onRedo={vi.fn()} onClear={onClear} onDelete={vi.fn()} disabled={false} visible={true} />
     )
     fireEvent.click(screen.getByText('清空'))
     expect(onClear).toHaveBeenCalledOnce()
@@ -143,9 +145,23 @@ describe('QuickBar', () => {
 
   it('disabled=true → 按钮不可点击', () => {
     render(
-      <QuickBar onUndo={vi.fn()} onClear={vi.fn()} disabled={true} visible={true} />
+      <QuickBar onUndo={vi.fn()} onRedo={vi.fn()} onClear={vi.fn()} onDelete={vi.fn()} disabled={true} visible={true} />
     )
     expect(screen.getByText('撤销').closest('button')).toBeDisabled()
     expect(screen.getByText('清空').closest('button')).toBeDisabled()
+  })
+
+  it('canUndo=false → 撤销按钮禁用', () => {
+    render(
+      <QuickBar onUndo={vi.fn()} onRedo={vi.fn()} onClear={vi.fn()} onDelete={vi.fn()} disabled={false} visible={true} canUndo={false} canRedo={true} />
+    )
+    expect(screen.getByText('撤销').closest('button')).toBeDisabled()
+  })
+
+  it('canRedo → 重做按钮状态', () => {
+    render(
+      <QuickBar onUndo={vi.fn()} onRedo={vi.fn()} onClear={vi.fn()} onDelete={vi.fn()} disabled={false} visible={true} canRedo={true} />
+    )
+    expect(screen.getByText('重做').closest('button')).not.toBeDisabled()
   })
 })
